@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TC5 Multicharacter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="shell">
+      <div class="left">
+        <div class="brand">TC5 Character Select</div>
+        <div class="subtitle">Choose a character or create a new slot.</div>
+        <div id="slotInfo" class="slot-info"></div>
+        <div id="characterList" class="character-list"></div>
+      </div>
+      <div class="right">
+        <div class="panel-title">Create Character</div>
+        <div class="field">
+          <label>First name</label>
+          <input id="firstName" type="text" maxlength="24" placeholder="New">
+        </div>
+        <div class="field">
+          <label>Last name</label>
+          <input id="lastName" type="text" maxlength="24" placeholder="Citizen">
+        </div>
+        <button id="createBtn" class="primary">Create Character</button>
+        <button id="refreshBtn" class="secondary">Refresh Slots</button>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

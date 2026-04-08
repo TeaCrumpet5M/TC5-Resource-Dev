@@ -10,27 +10,15 @@ local function getOrCreateUser(src)
     end
 
     local license = TC5.Utils.GetIdentifier(src, TC5.Config.IdentifierType)
-
     if not license then
         return nil, 'No valid license identifier found.'
     end
 
     local playerName = TC5.Utils.GetPlayerNameSafe(src)
-
-    local user = TC5.DB.FetchOne('SELECT * FROM tc5_users WHERE license = ? LIMIT 1', {
-        license
-    })
+    local user = TC5.DB.FetchOne('SELECT * FROM tc5_users WHERE license = ? LIMIT 1', { license })
 
     if user then
-        TC5.DB.Update([[
-            UPDATE tc5_users
-            SET name = ?, last_seen = NOW()
-            WHERE id = ?
-        ]], {
-            playerName,
-            user.id
-        })
-
+        TC5.DB.Update([[ UPDATE tc5_users SET name = ?, last_seen = NOW() WHERE id = ? ]], { playerName, user.id })
         user.name = playerName
         user.last_seen = os.date('%Y-%m-%d %H:%M:%S')
         return user
@@ -40,10 +28,7 @@ local function getOrCreateUser(src)
         return nil, 'User not found and auto-create is disabled.'
     end
 
-    local insertId = TC5.DB.Insert([[
-        INSERT INTO tc5_users (license, name, last_seen)
-        VALUES (?, ?, NOW())
-    ]], {
+    local insertId = TC5.DB.Insert([[ INSERT INTO tc5_users (license, name, last_seen) VALUES (?, ?, NOW()) ]], {
         license,
         playerName
     })
@@ -52,10 +37,7 @@ local function getOrCreateUser(src)
         return nil, 'Failed to create new user.'
     end
 
-    local newUser = TC5.DB.FetchOne('SELECT * FROM tc5_users WHERE id = ? LIMIT 1', {
-        insertId
-    })
-
+    local newUser = TC5.DB.FetchOne('SELECT * FROM tc5_users WHERE id = ? LIMIT 1', { insertId })
     if not newUser then
         return nil, 'User was inserted but could not be reloaded.'
     end
@@ -63,63 +45,26 @@ local function getOrCreateUser(src)
     return newUser
 end
 
-local function loadPlayer(src)
-    if not src then
-        print('^1[tc5_core]^7 loadPlayer called with nil source.')
-        return
+local function getOrCreatePlayerSession(src)
+    local player = TC5.GetPlayer(src)
+    if player then
+        return player
     end
 
     local user, err = getOrCreateUser(src)
-
     if not user then
-        print(('^1[%s]^7 Failed loading player %s: %s'):format(
-            TC5.Config.FrameworkName,
-            tostring(src),
-            tostring(err)
-        ))
-
-        DropPlayer(src, 'Failed to load your user data.')
-        return
+        return nil, err
     end
 
-    local player = TC5.CreatePlayerSession(src, user)
-    local character = TC5.LoadOrCreateCharacter(player:GetUserId())
+    return TC5.CreatePlayerSession(src, user)
+end
 
-    if not character then
-        print(('^1[%s]^7 Failed loading character for source %s'):format(
-            TC5.Config.FrameworkName,
-            tostring(src)
-        ))
-
-        DropPlayer(src, 'Failed to load your character data.')
-        return
-    end
-
-    player:SetCharacter(character)
-
-    print(('^2[%s]^7 Loaded user | source=%s userId=%s name=%s license=%s'):format(
-        TC5.Config.FrameworkName,
-        tostring(player:GetSource()),
-        tostring(player:GetUserId()),
-        tostring(player:GetName()),
-        tostring(player:GetLicense())
-    ))
-
-    print(('^2[%s]^7 Loaded character | charId=%s fullName=%s cash=%s bank=%s creatorDone=%s apartmentId=%s'):format(
-        TC5.Config.FrameworkName,
-        tostring(character:GetId()),
-        tostring(character:GetFullName()),
-        tostring(character:GetCash()),
-        tostring(character:GetBank()),
-        tostring(character:GetHasCompletedCreator()),
-        tostring(character:GetApartmentId())
-    ))
-
+local function sendUserLoaded(src, player, character)
     TriggerClientEvent('tc5_core:client:userLoaded', src, {
         userId = player:GetUserId(),
         name = player:GetName(),
         license = player:GetLicense(),
-        character = {
+        character = character and {
             id = character:GetId(),
             firstName = character:GetFirstName(),
             lastName = character:GetLastName(),
@@ -128,31 +73,112 @@ local function loadPlayer(src)
             bank = character:GetBank(),
             apartmentId = character:GetApartmentId(),
             hasCompletedCreator = character:GetHasCompletedCreator()
+        } or nil
+    })
+end
+
+local function openCharacterSelector(src, player)
+    local characters = TC5.GetCharacterSummariesByUserId(player:GetUserId())
+    TriggerClientEvent('tc5_multichar:client:open', src, {
+        maxSlots = TC5.Config.MaxCharacterSlots or 4,
+        characters = characters,
+        user = {
+            userId = player:GetUserId(),
+            name = player:GetName(),
+            license = player:GetLicense()
         }
     })
+end
 
+local function activateCharacter(src, characterId)
+    local player = TC5.GetPlayer(src)
+    if not player then
+        return false, 'no_session'
+    end
+
+    local currentCharacter = player:GetCharacter()
+    if currentCharacter then
+        currentCharacter:Save()
+    end
+
+    local character = TC5.GetCharacterForUser(player:GetUserId(), tonumber(characterId))
+    if not character then
+        return false, 'invalid_character'
+    end
+
+    character = TC5.SetSelectedCharacter(player:GetUserId(), character:GetId())
+    if not character then
+        return false, 'select_failed'
+    end
+
+    player:SetCharacter(character)
+
+    print(('^2[%s]^7 Activated character | source=%s userId=%s charId=%s fullName=%s creatorDone=%s apartmentId=%s'):format(
+        TC5.Config.FrameworkName,
+        tostring(src),
+        tostring(player:GetUserId()),
+        tostring(character:GetId()),
+        tostring(character:GetFullName()),
+        tostring(character:GetHasCompletedCreator()),
+        tostring(character:GetApartmentId())
+    ))
+
+    sendUserLoaded(src, player, character)
+    TriggerClientEvent('tc5_multichar:client:selected', src, {
+        id = character:GetId(),
+        hasCompletedCreator = character:GetHasCompletedCreator()
+    })
     TriggerClientEvent('tc5_spawn:client:prepareSpawn', src, {
         firstTime = not character:GetHasCompletedCreator()
     })
+
+    return true, character
+end
+
+local function loadPlayer(src)
+    if not src then
+        print('^1[tc5_core]^7 loadPlayer called with nil source.')
+        return
+    end
+
+    local player, err = getOrCreatePlayerSession(src)
+    if not player then
+        print(('^1[%s]^7 Failed loading player %s: %s'):format(
+            TC5.Config.FrameworkName,
+            tostring(src),
+            tostring(err)
+        ))
+        DropPlayer(src, 'Failed to load your user data.')
+        return
+    end
+
+    print(('^2[%s]^7 Loaded user session | source=%s userId=%s name=%s license=%s'):format(
+        TC5.Config.FrameworkName,
+        tostring(player:GetSource()),
+        tostring(player:GetUserId()),
+        tostring(player:GetName()),
+        tostring(player:GetLicense())
+    ))
+
+    player:SetCharacter(nil)
+    sendUserLoaded(src, player, nil)
+    openCharacterSelector(src, player)
 end
 
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
-
     Wait(1000)
     TC5.DB.Ready()
 end)
 
 AddEventHandler('playerJoining', function()
     local src = source
-
     if not src then
         print('^1[tc5_core]^7 playerJoining fired with nil source.')
         return
     end
 
     print(('[tc5_core] playerJoining fired for source %s'):format(tostring(src)))
-
     CreateThread(function()
         Wait(1000)
         loadPlayer(src)
@@ -161,30 +187,83 @@ end)
 
 AddEventHandler('playerDropped', function()
     local src = source
-
     if not src then return end
+
+    if GetResourceState('tc5_spawn') == 'started' and exports['tc5_spawn'] and exports['tc5_spawn'].SaveLastLocation then
+        pcall(function()
+            exports['tc5_spawn']:SaveLastLocation(src)
+        end)
+    end
 
     TC5.SavePlayer(src)
     TC5.RemovePlayerSession(src)
-
     TC5.Utils.DebugPrint(('Saved and removed session for source %s'):format(src))
 end)
 
 CreateThread(function()
     local interval = (TC5.Config.SaveIntervalMinutes or 5) * 60000
-
     while true do
         Wait(interval)
-
         local savedCount = TC5.SaveAllPlayers()
         TC5.Utils.DebugPrint(('Auto-saved %s player sessions.'):format(savedCount))
+    end
+end)
+
+RegisterNetEvent('tc5_core:server:requestCharacterList', function()
+    local src = source
+    local player, err = getOrCreatePlayerSession(src)
+    if not player then
+        print(('[tc5_core] requestCharacterList failed for %s: %s'):format(tostring(src), tostring(err)))
+        return
+    end
+
+    openCharacterSelector(src, player)
+end)
+
+RegisterNetEvent('tc5_core:server:selectCharacter', function(characterId)
+    local src = source
+    local ok, result = activateCharacter(src, characterId)
+    if not ok then
+        TriggerClientEvent('tc5_multichar:client:selectionFailed', src, tostring(result))
+        openCharacterSelector(src, TC5.GetPlayer(src))
+    end
+end)
+
+RegisterNetEvent('tc5_core:server:createCharacter', function(data)
+    local src = source
+    local player = TC5.GetPlayer(src)
+    if not player then
+        local restored, err = getOrCreatePlayerSession(src)
+        if not restored then
+            TriggerClientEvent('tc5_multichar:client:selectionFailed', src, tostring(err or 'session_failed'))
+            return
+        end
+        player = restored
+    end
+
+    local firstName = trim(data and data.firstName)
+    local lastName = trim(data and data.lastName)
+
+    if firstName == '' then firstName = TC5.Config.DefaultCharacter.FirstName end
+    if lastName == '' then lastName = TC5.Config.DefaultCharacter.LastName end
+
+    local character, err = TC5.CreateCharacter(player:GetUserId(), firstName, lastName)
+    if not character then
+        TriggerClientEvent('tc5_multichar:client:selectionFailed', src, tostring(err or 'create_failed'))
+        openCharacterSelector(src, player)
+        return
+    end
+
+    local ok = activateCharacter(src, character:GetId())
+    if not ok then
+        TriggerClientEvent('tc5_multichar:client:selectionFailed', src, 'activation_failed')
+        openCharacterSelector(src, player)
     end
 end)
 
 RegisterNetEvent('tc5_core:server:finishCreator', function(data)
     local src = source
     local player = TC5.GetPlayer(src)
-
     if not player then
         print(('[tc5_core] finishCreator failed for %s: no player session'):format(tostring(src)))
         TriggerClientEvent('tc5_creator:client:reopen', src)
@@ -192,7 +271,6 @@ RegisterNetEvent('tc5_core:server:finishCreator', function(data)
     end
 
     local character = player:GetCharacter()
-
     if not character then
         print(('[tc5_core] finishCreator failed for %s: no character'):format(tostring(src)))
         TriggerClientEvent('tc5_creator:client:reopen', src)
@@ -201,7 +279,6 @@ RegisterNetEvent('tc5_core:server:finishCreator', function(data)
 
     local firstName = trim(data and data.firstName)
     local lastName = trim(data and data.lastName)
-
     if firstName == '' or lastName == '' then
         print(('[tc5_core] finishCreator failed for %s: invalid name'):format(tostring(src)))
         TriggerClientEvent('tc5_creator:client:reopen', src)
@@ -214,7 +291,6 @@ RegisterNetEvent('tc5_core:server:finishCreator', function(data)
     character:Save()
 
     local apartment = exports['tc5_apartment']:CreateStarterApartment(src)
-
     if not apartment then
         print(('[tc5_core] finishCreator failed for %s: starter apartment creation failed'):format(tostring(src)))
         TriggerClientEvent('tc5_creator:client:reopen', src)
@@ -231,23 +307,17 @@ RegisterCommand('tc5_me', function(src)
     end
 
     local player = TC5.GetPlayer(src)
-
     if not player then
-        TriggerClientEvent('chat:addMessage', src, {
-            args = { 'TC5', 'Your user session is not loaded yet.' }
-        })
+        TriggerClientEvent('chat:addMessage', src, { args = { 'TC5', 'Your user session is not loaded yet.' } })
         return
     end
 
     TriggerClientEvent('chat:addMessage', src, {
-        args = {
-            'TC5',
-            ('userId=%s | name=%s | license=%s'):format(
-                tostring(player:GetUserId()),
-                tostring(player:GetName()),
-                tostring(player:GetLicense())
-            )
-        }
+        args = { 'TC5', ('userId=%s | name=%s | license=%s'):format(
+            tostring(player:GetUserId()),
+            tostring(player:GetName()),
+            tostring(player:GetLicense())
+        ) }
     })
 end, false)
 
@@ -258,26 +328,20 @@ RegisterCommand('tc5_char', function(src)
     end
 
     local player = TC5.GetPlayer(src)
-
     if not player or not player:GetCharacter() then
-        TriggerClientEvent('chat:addMessage', src, {
-            args = { 'TC5', 'Your character is not loaded yet.' }
-        })
+        TriggerClientEvent('chat:addMessage', src, { args = { 'TC5', 'Your character is not loaded yet.' } })
         return
     end
 
     TriggerClientEvent('chat:addMessage', src, {
-        args = {
-            'TC5',
-            ('charId=%s | fullName=%s | cash=%s | bank=%s | creatorDone=%s | apartmentId=%s'):format(
-                tostring(player:GetCharacterId()),
-                tostring(player:GetCharacterName()),
-                tostring(player:GetCash()),
-                tostring(player:GetBank()),
-                tostring(player:GetCharacter():GetHasCompletedCreator()),
-                tostring(player:GetCharacter():GetApartmentId())
-            )
-        }
+        args = { 'TC5', ('charId=%s | fullName=%s | cash=%s | bank=%s | creatorDone=%s | apartmentId=%s'):format(
+            tostring(player:GetCharacterId()),
+            tostring(player:GetCharacterName()),
+            tostring(player:GetCash()),
+            tostring(player:GetBank()),
+            tostring(player:GetCharacter():GetHasCompletedCreator()),
+            tostring(player:GetCharacter():GetApartmentId())
+        ) }
     })
 end, false)
 
@@ -289,9 +353,7 @@ RegisterCommand('tc5_addcash', function(src, args)
 
     local amount = tonumber(args[1])
     if not amount then
-        TriggerClientEvent('chat:addMessage', src, {
-            args = { 'TC5', 'Usage: /tc5_addcash [amount]' }
-        })
+        TriggerClientEvent('chat:addMessage', src, { args = { 'TC5', 'Usage: /tc5_addcash [amount]' } })
         return
     end
 
@@ -314,9 +376,7 @@ RegisterCommand('tc5_addbank', function(src, args)
 
     local amount = tonumber(args[1])
     if not amount then
-        TriggerClientEvent('chat:addMessage', src, {
-            args = { 'TC5', 'Usage: /tc5_addbank [amount]' }
-        })
+        TriggerClientEvent('chat:addMessage', src, { args = { 'TC5', 'Usage: /tc5_addbank [amount]' } })
         return
     end
 
@@ -333,7 +393,6 @@ end, false)
 
 RegisterCommand('tc5_saveall', function(src)
     if src ~= 0 then return end
-
     local savedCount = TC5.SaveAllPlayers()
     print(('[tc5_core] Saved %s player sessions.'):format(savedCount))
 end, true)
@@ -347,7 +406,6 @@ exports('GetPlayerData', function(src)
     if not player then return nil end
 
     local character = player:GetCharacter()
-
     return {
         source = player:GetSource(),
         userId = player:GetUserId(),
@@ -384,6 +442,33 @@ exports('SetCharacterApartment', function(src, apartmentId)
 
     character:SetApartmentId(apartmentId)
     character:Save()
-
     return true
+end)
+
+exports('GetCharacters', function(src)
+    local player = TC5.GetPlayer(src)
+    if not player then return {} end
+    return TC5.GetCharacterSummariesByUserId(player:GetUserId())
+end)
+
+exports('SelectCharacter', function(src, characterId)
+    local ok, result = activateCharacter(src, characterId)
+    return ok, result
+end)
+
+exports('CreateCharacterForUser', function(src, data)
+    local player = TC5.GetPlayer(src)
+    if not player then return false, 'no_session' end
+
+    local character, err = TC5.CreateCharacter(
+        player:GetUserId(),
+        trim(data and data.firstName),
+        trim(data and data.lastName)
+    )
+
+    if not character then
+        return false, err
+    end
+
+    return activateCharacter(src, character:GetId())
 end)

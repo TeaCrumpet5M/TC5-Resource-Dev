@@ -7,16 +7,11 @@ function TC5.Utils.DebugPrint(message)
 end
 
 function TC5.Utils.GetPlayerNameSafe(src)
-    if not src then
-        return 'Unknown'
-    end
-
+    if not src then return 'Unknown' end
     local playerName = GetPlayerName(src)
-
     if not playerName or playerName == '' then
         return ('Player_%s'):format(src)
     end
-
     return playerName
 end
 
@@ -37,7 +32,6 @@ function TC5.Utils.GetIdentifier(src, identifierType)
 
     for i = 1, #identifiers do
         local identifier = identifiers[i]
-
         if identifier and identifier:sub(1, #prefix) == prefix then
             return identifier
         end

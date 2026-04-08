@@ -10,7 +10,6 @@ function TC5.DB.FetchAll(query, params)
         print('^1[tc5_core]^7 MySQL is not available.')
         return nil
     end
-
     return MySQL.query.await(query, params or {})
 end
 
@@ -19,7 +18,6 @@ function TC5.DB.FetchOne(query, params)
         print('^1[tc5_core]^7 MySQL is not available.')
         return nil
     end
-
     return MySQL.single.await(query, params or {})
 end
 
@@ -28,7 +26,6 @@ function TC5.DB.Insert(query, params)
         print('^1[tc5_core]^7 MySQL is not available.')
         return nil
     end
-
     return MySQL.insert.await(query, params or {})
 end
 
@@ -37,7 +34,6 @@ function TC5.DB.Update(query, params)
         print('^1[tc5_core]^7 MySQL is not available.')
         return nil
     end
-
     return MySQL.update.await(query, params or {})
 end
 
@@ -46,7 +42,6 @@ function TC5.DB.Scalar(query, params)
         print('^1[tc5_core]^7 MySQL is not available.')
         return nil
     end
-
     return MySQL.scalar.await(query, params or {})
 end
 

@@ -6,6 +6,7 @@ TC5.Config.Debug = true
 TC5.Config.IdentifierType = 'license'
 TC5.Config.AutoCreateUserOnJoin = true
 TC5.Config.SaveIntervalMinutes = 5
+TC5.Config.MaxCharacterSlots = 4
 
 TC5.Config.DefaultCharacter = {
     FirstName = 'New',

@@ -1,47 +1,57 @@
 const app = document.getElementById('app');
-const cards = document.getElementById('cards');
+const spawnList = document.getElementById('spawnList');
+let spawns = [];
 
-function post(name, data = {}) {
-  fetch(`https://${GetParentResourceName()}/${name}`, {
+function resourcePost(action, data = {}) {
+  fetch(`https://${GetParentResourceName()}/${action}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=UTF-8' },
     body: JSON.stringify(data)
-  });
+  }).catch(() => {});
 }
 
-function makeCard(label, description, coords, category) {
-  const el = document.createElement('div');
-  el.className = 'card';
-  el.innerHTML = `
-    <div class="chip">${category || 'spawn'}</div>
-    <div class="card-title">${label}</div>
-    <div class="card-sub">${description}</div>
-    <button>Select Spawn</button>
-  `;
-  el.querySelector('button').addEventListener('click', () => post('selectSpawn', coords));
-  return el;
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function render() {
+  spawnList.innerHTML = spawns.map((spawn, index) => `
+    <div class="card">
+      <h3>${escapeHtml(spawn.label || `Spawn ${index + 1}`)}</h3>
+      <div class="meta">${escapeHtml(spawn.description || 'Spawn location')}</div>
+      <button data-spawn-index="${index}">Spawn Here</button>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('[data-spawn-index]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const spawn = spawns[Number(button.dataset.spawnIndex)];
+      if (spawn) {
+        resourcePost('selectSpawn', spawn);
+      }
+    });
+  });
 }
 
 window.addEventListener('message', (event) => {
   const { action, data } = event.data || {};
   if (action === 'open') {
+    spawns = Array.isArray(data?.starterSpawns) ? data.starterSpawns : [];
     app.classList.remove('hidden');
-    cards.innerHTML = '';
-
-    (data.starterSpawns || []).forEach((spawn) => {
-      cards.appendChild(makeCard(
-        spawn.label,
-        spawn.description || 'Spawn here.',
-        spawn,
-        spawn.category || 'spawn'
-      ));
-    });
+    render();
   }
-
   if (action === 'close') {
     app.classList.add('hidden');
   }
 });
 
-document.getElementById('closeBtn').addEventListener('click', () => post('close'));
-document.addEventListener('keyup', (e) => { if (e.key === 'Escape') post('close'); });
+document.addEventListener('keyup', (event) => {
+  if (event.key === 'Escape') {
+    resourcePost('close', {});
+  }
+});

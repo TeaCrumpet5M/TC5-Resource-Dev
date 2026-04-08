@@ -3,9 +3,9 @@ game 'gta5'
 lua54 'yes'
 
 name 'tc5_core'
-author 'TC5 Framework'
-description 'TC5 Core Framework'
-version '1.3.0'
+author 'TC5 Framework + OpenAI'
+description 'TC5 Core Framework with multicharacter support'
+version '1.4.0'
 
 shared_scripts {
     'shared/config.lua',

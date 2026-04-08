@@ -11,7 +11,7 @@ local function getPedCoordsSafe(src)
 end
 
 local function ensureTable()
-    MySQL.query.await([[
+    MySQL.query.await([[ 
         CREATE TABLE IF NOT EXISTS tc5_last_locations (
             character_id INT NOT NULL,
             x DOUBLE NOT NULL,
@@ -32,13 +32,16 @@ local function saveLastLocation(src)
     if not coords then return false end
 
     ensureTable()
-
-    MySQL.insert.await([[
-        INSERT INTO tc5_last_locations (character_id, x, y, z, w)
-        VALUES (?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE x = VALUES(x), y = VALUES(y), z = VALUES(z), w = VALUES(w)
+    MySQL.insert.await([[ 
+        INSERT INTO tc5_last_locations (character_id, x, y, z, w) 
+        VALUES (?, ?, ?, ?, ?) 
+        ON DUPLICATE KEY UPDATE x = VALUES(x), y = VALUES(y), z = VALUES(z), w = VALUES(w) 
     ]], {
-        characterId, coords.x, coords.y, coords.z, heading or 0.0
+        characterId,
+        coords.x,
+        coords.y,
+        coords.z,
+        heading or 0.0
     })
 
     return true
@@ -53,11 +56,7 @@ exports('GetLastLocation', function(src)
     if not characterId then return nil end
 
     ensureTable()
-
-    local row = MySQL.single.await('SELECT * FROM tc5_last_locations WHERE character_id = ? LIMIT 1', {
-        characterId
-    })
-
+    local row = MySQL.single.await('SELECT * FROM tc5_last_locations WHERE character_id = ? LIMIT 1', { characterId })
     if not row then return nil end
 
     return {

@@ -1,21 +1,19 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TC5 Spawn Selector</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app" class="hidden">
-    <div class="bg"></div>
-    <div class="panel">
-      <div class="eyebrow">TC5 SPAWN SELECTOR</div>
-      <h1>Choose your spawn</h1>
-      <p>Your apartment is always available here, and every character gets their own apartment assignment.</p>
-      <div id="cards" class="cards"></div>
-      <div class="footer">
-        <button id="closeBtn" class="ghost">Close</button>
+    <div class="shell">
+      <div class="header">
+        <h1>Choose Spawn</h1>
+        <p>Select where this character should enter the world.</p>
       </div>
+      <div id="spawnList" class="spawn-list"></div>
     </div>
   </div>
   <script src="app.js"></script>

@@ -3,12 +3,12 @@ local apartmentData = nil
 local apartmentChoices = {}
 local pendingSpawnData = nil
 local lastLocation = nil
+local hasApartmentResponse = false
+local hasLastLocationResponse = false
+local openNonce = 0
 
 local function postUI(action, data)
-    SendNUIMessage({
-        action = action,
-        data = data or {}
-    })
+    SendNUIMessage({ action = action, data = data or {} })
 end
 
 local function closeSelector()
@@ -26,7 +26,6 @@ end
 
 local function buildApartmentSpawns()
     local entries = {}
-
     for i = 1, #(apartmentChoices or {}) do
         local apartment = apartmentChoices[i]
         entries[#entries + 1] = {
@@ -51,15 +50,29 @@ local function buildApartmentSpawns()
             }
         end
     end
-
     return entries
 end
 
 local function buildStarterSpawns()
     local spawns = {
-        { label = 'Airport', description = 'Fast travel start near the airport.', category = 'city', x = -1037.76, y = -2737.88, z = 20.17, w = 328.24 },
-        { label = 'Legion Square', description = 'Central city spawn close to transport.', category = 'city', x = 215.81, y = -810.12, z = 30.73, w = 157.20 },
-        { label = 'Alta Street', description = 'Downtown starter spawn.', category = 'city', x = -269.62, y = -957.87, z = 31.22, w = 205.16 }
+        {
+            label = 'Airport',
+            description = 'Fast travel start near the airport.',
+            category = 'city',
+            x = -1037.76, y = -2737.88, z = 20.17, w = 328.24
+        },
+        {
+            label = 'Legion Square',
+            description = 'Central city spawn close to transport.',
+            category = 'city',
+            x = 215.81, y = -810.12, z = 30.73, w = 157.20
+        },
+        {
+            label = 'Alta Street',
+            description = 'Downtown starter spawn.',
+            category = 'city',
+            x = -269.62, y = -957.87, z = 31.22, w = 205.16
+        }
     }
 
     if lastLocation then
@@ -75,8 +88,8 @@ local function buildStarterSpawns()
     end
 
     local apartmentSpawns = buildApartmentSpawns()
-    for i = 1, #apartmentSpawns do
-        table.insert(spawns, i, apartmentSpawns[i])
+    for i = #apartmentSpawns, 1, -1 do
+        table.insert(spawns, 1, apartmentSpawns[i])
     end
 
     return spawns
@@ -91,7 +104,6 @@ local function openSpawnSelector()
     selectorOpen = true
     SetNuiFocus(true, true)
     SetNuiFocusKeepInput(false)
-
     postUI('open', {
         apartment = apartmentData,
         apartments = apartmentChoices,
@@ -99,11 +111,23 @@ local function openSpawnSelector()
     })
 end
 
+local function tryOpenSpawnSelector(nonce)
+    if nonce ~= openNonce then return end
+    if hasApartmentResponse and hasLastLocationResponse then
+        openSpawnSelector()
+    end
+end
+
 RegisterNetEvent('tc5_spawn:client:prepareSpawn', function(data)
+    openNonce = openNonce + 1
+    local nonce = openNonce
+
     pendingSpawnData = data or {}
     lastLocation = nil
     apartmentData = nil
     apartmentChoices = {}
+    hasApartmentResponse = false
+    hasLastLocationResponse = false
 
     if pendingSpawnData.firstTime then
         closeLoading()
@@ -118,8 +142,10 @@ RegisterNetEvent('tc5_spawn:client:prepareSpawn', function(data)
     TriggerServerEvent('tc5_spawn:server:requestLastLocation')
 
     CreateThread(function()
-        Wait(700)
-        openSpawnSelector()
+        Wait(1200)
+        if nonce == openNonce and not selectorOpen then
+            openSpawnSelector()
+        end
     end)
 end)
 
@@ -127,13 +153,20 @@ RegisterNetEvent('tc5_spawn:client:creatorFinished', function()
     closeLoading()
     apartmentData = nil
     apartmentChoices = {}
+    lastLocation = nil
+    hasApartmentResponse = false
+    hasLastLocationResponse = false
+    openNonce = openNonce + 1
+    local nonce = openNonce
 
     TriggerServerEvent('tc5_apartment:server:request')
     TriggerServerEvent('tc5_spawn:server:requestLastLocation')
 
     CreateThread(function()
-        Wait(700)
-        openSpawnSelector()
+        Wait(1200)
+        if nonce == openNonce and not selectorOpen then
+            openSpawnSelector()
+        end
     end)
 end)
 
@@ -143,6 +176,8 @@ end)
 
 RegisterNetEvent('tc5_spawn:client:setLastLocation', function(data)
     lastLocation = data
+    hasLastLocationResponse = true
+    tryOpenSpawnSelector(openNonce)
 end)
 
 RegisterNetEvent('tc5_apartment:client:setApartment', function(data)
@@ -153,7 +188,12 @@ RegisterNetEvent('tc5_apartment:client:setApartment', function(data)
     elseif type(data) == 'table' and data[1] then
         apartmentChoices = data
         apartmentData = data[1]
+    else
+        apartmentChoices = {}
     end
+
+    hasApartmentResponse = true
+    tryOpenSpawnSelector(openNonce)
 end)
 
 RegisterNUICallback('selectSpawn', function(data, cb)

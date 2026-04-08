@@ -6,7 +6,6 @@ Player.__index = Player
 
 function Player:new(source, userData)
     local self = setmetatable({}, Player)
-
     self.source = source
     self.userId = userData.id
     self.license = userData.license
@@ -14,7 +13,6 @@ function Player:new(source, userData)
     self.createdAt = userData.created_at
     self.lastSeen = userData.last_seen
     self.character = nil
-
     return self
 end
 
@@ -35,11 +33,10 @@ function Player:AddBank(amount) if self.character then self.character:AddBank(am
 function Player:RemoveBank(amount) if self.character then self.character:RemoveBank(amount) end end
 
 function Player:SaveUser()
-    return TC5.DB.Update([[
-        UPDATE tc5_users
-        SET name = ?, last_seen = NOW()
-        WHERE id = ?
-    ]], { self.name, self.userId })
+    return TC5.DB.Update([[ UPDATE tc5_users SET name = ?, last_seen = NOW() WHERE id = ? ]], {
+        self.name,
+        self.userId
+    })
 end
 
 function Player:SaveCharacter()
@@ -55,7 +52,9 @@ end
 
 TC5.Player = Player
 
-function TC5.GetPlayer(source) return TC5.Players[source] end
+function TC5.GetPlayer(source)
+    return TC5.Players[source]
+end
 
 function TC5.GetPlayerByUserId(userId)
     for _, player in pairs(TC5.Players) do

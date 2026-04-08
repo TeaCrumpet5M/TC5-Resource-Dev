@@ -16,13 +16,14 @@ end)
 
 RegisterNetEvent('tc5_core:client:spawnPlayer', function(coords)
     local ped = PlayerPedId()
+    if not coords then return end
 
     TriggerEvent('tc5_creator:client:forceClose')
     TriggerEvent('tc5_spawn:client:forceClose')
+    TriggerEvent('tc5_multichar:client:forceClose')
 
     SetNuiFocus(false, false)
     SetNuiFocusKeepInput(false)
-
     ShutdownLoadingScreen()
     ShutdownLoadingScreenNui()
 
@@ -30,10 +31,8 @@ RegisterNetEvent('tc5_core:client:spawnPlayer', function(coords)
     Wait(500)
 
     RequestCollisionAtCoord(coords.x, coords.y, coords.z)
-
     SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
     SetEntityHeading(ped, coords.w or 0.0)
-
     FreezeEntityPosition(ped, false)
     SetEntityVisible(ped, true, false)
 
