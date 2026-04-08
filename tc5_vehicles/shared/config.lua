@@ -6,5 +6,8 @@ TC5Vehicles.DefaultDamageMultipliers = {
 }
 
 TC5Vehicles.DamageMultipliers = {
-    ['police'] = { engine = 0.8, body = 0.9 }
+    ['police'] = {
+        engine = 0.8,
+        body = 0.9
+    }
 }

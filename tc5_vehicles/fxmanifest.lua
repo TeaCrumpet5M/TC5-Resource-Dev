@@ -3,9 +3,9 @@ game 'gta5'
 lua54 'yes'
 
 name 'tc5_vehicles'
-author 'TC5'
+author 'TC5 + OpenAI patch'
 description 'Vehicle HUD + Seatbelt + Flip + Damage System'
-version '1.0.0'
+version '1.0.1'
 
 ui_page 'html/index.html'
 

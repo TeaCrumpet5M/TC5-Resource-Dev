@@ -1,15 +1,64 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TC5 Vehicle HUD</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="hud">
-    <div id="speed">0</div>
-    <div id="info">
-        <span id="belt">Belt: OFF</span>
+    <div id="hud" style="display: none;">
+        <div class="cluster-wrap">
+            <div class="cluster">
+
+                <!-- RPM -->
+                <div class="gauge small-gauge">
+                    <div class="gauge-face">
+                        <div class="tick-ring tick-ring-rpm"></div>
+                        <div class="needle needle-rpm" id="rpmNeedle"></div>
+                        <div class="needle-cap"></div>
+
+                        <div class="gauge-label top-label">RPM</div>
+                        <div class="small-value" id="rpmValue">0</div>
+                    </div>
+                </div>
+
+                <!-- SPEED -->
+                <div class="gauge main-gauge">
+                    <div class="gauge-face">
+                        <div class="tick-ring tick-ring-speed"></div>
+                        <div class="needle needle-speed" id="speedNeedle"></div>
+                        <div class="needle-cap"></div>
+
+                        <div class="speed-readout" id="speedReadout">0</div>
+                        <div class="speed-unit">MPH</div>
+                    </div>
+                </div>
+
+                <!-- FUEL -->
+                <div class="gauge small-gauge">
+                    <div class="gauge-face">
+                        <div class="tick-ring tick-ring-fuel"></div>
+                        <div class="needle needle-fuel" id="fuelNeedle"></div>
+                        <div class="needle-cap"></div>
+
+                        <div class="gauge-label top-label">FUEL</div>
+                        <div class="small-value" id="fuelValue">0%</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Status -->
+            <div class="status-strip">
+                <div id="beltStatus" class="status-pill">BELT OFF</div>
+                <div id="engineStatus" class="status-pill">ENGINE ON</div>
+                <div id="gearStatus" class="status-pill">GEAR 1</div>
+                <div id="lightsStatus" class="status-pill">LIGHTS OFF</div>
+            </div>
+        </div>
     </div>
-</div>
-<script src="app.js"></script>
+
+    <script src="app.js"></script>
 </body>
 </html>

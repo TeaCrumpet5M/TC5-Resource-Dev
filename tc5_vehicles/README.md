@@ -1,23 +1,9 @@
-# tc5_vehicles
+# tc5_vehicles fixed build
 
-TC5 vehicle HUD and control resource.
+This build fixes the broken HUD by making the NUI and Lua message formats match again.
 
-## Features
-- round dash-cluster HUD while driving
-- speed dial
-- RPM dial
-- gear display
-- seatbelt on B
-- fuel, engine health, body health bars
-- lights, lock, handbrake, engine status
-- street name display
-- vehicle menu for doors, lights, and engine
-
-## Commands / Keys
-- B = seatbelt
-- K = vehicle menu
-- /vehmenu
-
-
-## Update
-- smaller transparent dash cluster variant
+Included:
+- analogue gauge cluster HUD
+- compatible `update` / `hide` NUI handling
+- radar shows in vehicles and hides on exit
+- existing seatbelt + flip command kept working
