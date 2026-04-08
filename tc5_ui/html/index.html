@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="loading" class="hidden">
+      <div class="overlay"></div>
+      <div class="loading-card">
+        <div class="spinner"></div>
+        <h2 id="loading-title">Loading</h2>
+        <p id="loading-message">Please wait...</p>
+      </div>
+    </div>
+
+    <div id="status-hud">
+      <div class="status-item health">
+        <div class="status-head">
+          <span class="status-label">Health</span>
+          <span class="status-value" id="status-health-value">100%</span>
+        </div>
+        <div class="status-bar"><div class="status-fill" id="status-health-fill"></div></div>
+      </div>
+
+      <div class="status-item armour" id="status-armour-item">
+        <div class="status-head">
+          <span class="status-label">Armour</span>
+          <span class="status-value" id="status-armour-value">0%</span>
+        </div>
+        <div class="status-bar"><div class="status-fill" id="status-armour-fill"></div></div>
+      </div>
+
+      <div class="status-item food">
+        <div class="status-head">
+          <span class="status-label">Food</span>
+          <span class="status-value" id="status-food-value">100%</span>
+        </div>
+        <div class="status-bar"><div class="status-fill" id="status-food-fill"></div></div>
+      </div>
+
+      <div class="status-item drink">
+        <div class="status-head">
+          <span class="status-label">Drink</span>
+          <span class="status-value" id="status-drink-value">100%</span>
+        </div>
+        <div class="status-bar"><div class="status-fill" id="status-drink-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="notifications"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

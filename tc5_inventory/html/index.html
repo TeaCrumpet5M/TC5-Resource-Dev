@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TC5 Inventory</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="app" class="hidden">
+        <div class="inventory-shell">
+            <div class="inventory-header">
+                <div>
+                    <div class="brand">TC5 INVENTORY</div>
+                    <div class="subtitle">Red / Black / White Framework UI</div>
+                </div>
+                <button id="closeButton" class="close-btn">×</button>
+            </div>
+
+            <div id="inventoryGrid" class="inventory-grid single">
+                <section class="inventory-panel">
+                    <div class="panel-head">
+                        <div>
+                            <h2 id="playerLabel">Inventory</h2>
+                            <p id="playerWeight">0 / 0</p>
+                        </div>
+                        <input id="playerSearch" class="search" type="text" placeholder="Search items" />
+                    </div>
+                    <div id="playerSlots" class="slots"></div>
+                </section>
+
+                <section id="secondaryPanel" class="inventory-panel hidden">
+                    <div class="panel-head">
+                        <div>
+                            <h2 id="secondaryLabel">Secondary</h2>
+                            <p id="secondaryWeight">0 / 0</p>
+                        </div>
+                        <input id="secondarySearch" class="search" type="text" placeholder="Search items" />
+                    </div>
+                    <div id="secondarySlots" class="slots"></div>
+                </section>
+            </div>
+
+            <div id="splitModal" class="split-modal hidden">
+                <div class="split-card">
+                    <h3>Split Stack</h3>
+                    <input id="splitAmount" type="number" min="1" value="1" />
+                    <div class="split-actions">
+                        <button id="splitConfirm" type="button">Confirm</button>
+                        <button id="splitCancel" type="button">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inventory-footer">
+                <div class="hint">Left click: use / buy • Drag: move • Shift + drag: split • Right click: drop 1</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

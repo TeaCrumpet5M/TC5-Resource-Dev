@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TC5 Admin Tools</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="app" class="hidden">
+        <aside class="menu-shell wide-shell">
+            <div class="menu-header">
+                <div>
+                    <div class="brand">TC5 ADMIN</div>
+                    <div class="subtitle">Black / red / white staff control panel</div>
+                </div>
+                <button id="closeBtn" class="close-btn">×</button>
+            </div>
+
+            <div class="content">
+                <div class="toolbar">
+                    <input id="search" class="search" placeholder="Search players..." />
+                    <button id="refreshBtn" class="tool-btn">Refresh</button>
+                </div>
+
+                <div class="group-line">
+                    <span>Group:</span>
+                    <span id="groupValue">unknown</span>
+                </div>
+
+                <div class="tabs tabs-5">
+                    <button class="tab-btn active" data-tab="players">Players</button>
+                    <button class="tab-btn" data-tab="jobs">Jobs</button>
+                    <button class="tab-btn" data-tab="vehicles">Vehicles</button>
+                    <button class="tab-btn" data-tab="reports">Reports</button>
+                    <button class="tab-btn" data-tab="self">Self</button>
+                </div>
+
+                <div id="playersTab" class="tab-panel active">
+                    <div id="playerList" class="player-list"></div>
+
+                    <div id="detailPanel" class="detail-panel hidden">
+                        <div class="detail-title" id="detailTitle">Player</div>
+
+                        <div class="section-title">Player Actions</div>
+                        <div class="action-grid">
+                            <button data-action="goto">Goto</button>
+                            <button data-action="bring">Bring</button>
+                            <button data-action="freeze">Freeze</button>
+                            <button data-action="unfreeze">Unfreeze</button>
+                            <button data-action="heal">Heal</button>
+                            <button data-action="revive">Revive</button>
+                            <button data-action="kill">Kill</button>
+                            <button data-action="spectate">Spectate</button>
+                            <button data-action="stopspectate">Stop Spectate</button>
+                            <button data-action="kick">Kick</button>
+                        </div>
+
+                        <div class="section-title">Vehicle</div>
+                        <div class="input-row">
+                            <input id="actionInput" class="search" placeholder="Kick reason / vehicle model" />
+                        </div>
+                        <div class="action-grid">
+                            <button data-action="spawnvehicle">Spawn Vehicle</button>
+                            <button data-action="deletevehicle">Delete Vehicle</button>
+                            <button data-action="fixvehicle">Fix Vehicle</button>
+                            <button data-action="cleanvehicle">Clean Vehicle</button>
+                            <button data-action="givekeys">Give Keys</button>
+                        </div>
+
+                        <div class="section-title">Money</div>
+                        <div class="input-row">
+                            <input id="moneyAmount" class="search" placeholder="Amount" />
+                        </div>
+                        <div class="action-grid">
+                            <button data-action="setcash">Set Cash</button>
+                            <button data-action="addcash">Add Cash</button>
+                            <button data-action="setbank">Set Bank</button>
+                            <button data-action="addbank">Add Bank</button>
+                        </div>
+
+                        <div class="section-title">Items</div>
+                        <div class="group-line small">
+                            <span>Spawn On Player:</span>
+                            <span id="itemSelectedPlayer">None</span>
+                        </div>
+                        <div class="input-row">
+                            <select id="itemPlayerSelect" class="search"></select>
+                        </div>
+                        <div class="input-row">
+                            <input id="itemSearch" class="search" placeholder="Search item name or label..." autocomplete="off" />
+                        </div>
+                        <div id="itemSelectedCard" class="item-selected-card hidden">
+                            <div class="item-selected-title" id="itemSelectedTitle">No item selected</div>
+                            <div class="item-selected-meta" id="itemSelectedMeta">Choose an item from the catalogue below.</div>
+                        </div>
+                        <div id="itemResults" class="item-results"></div>
+                        <div class="input-row">
+                            <input id="itemAmount" class="search" placeholder="Item amount" value="1" />
+                        </div>
+                        <div class="action-grid">
+                            <button data-action="giveitem">Give Item</button>
+                            <button data-action="removeitem">Remove Item</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="jobsTab" class="tab-panel">
+                    <div class="section-title">Job Manager</div>
+                    <div class="group-line small">
+                        <span>Selected Player:</span>
+                        <span id="jobSelectedPlayer">None</span>
+                    </div>
+                    <div class="input-row">
+                        <select id="jobSelect" class="search"></select>
+                    </div>
+                    <div class="input-row">
+                        <select id="gradeSelect" class="search"></select>
+                    </div>
+                    <div class="action-grid single-col">
+                        <button id="setJobBtn">Set Selected Job</button>
+                    </div>
+                </div>
+
+                <div id="vehiclesTab" class="tab-panel">
+                    <div class="section-title">Vehicle Spawner</div>
+                    <div class="toolbar compact-toolbar">
+                        <input id="vehicleSearch" class="search" placeholder="Search model or label..." />
+                    </div>
+                    <div id="vehicleCategories" class="category-row"></div>
+                    <div id="vehicleGrid" class="vehicle-grid"></div>
+                </div>
+
+                <div id="reportsTab" class="tab-panel">
+                    <div class="section-title">Create Report</div>
+                    <div class="input-row">
+                        <input id="reportInput" class="search" placeholder="Describe the issue..." />
+                    </div>
+                    <div class="action-grid single-col">
+                        <button data-action="createreport">Send Report</button>
+                    </div>
+
+                    <div class="section-title">Open Reports</div>
+                    <div id="reportsList" class="player-list"></div>
+                </div>
+
+                <div id="selfTab" class="tab-panel">
+                    <div class="section-title">Self Tools</div>
+                    <div class="action-grid">
+                        <button data-action="togglenoclip">Toggle Noclip</button>
+                        <button data-action="togglegodmode">Toggle Godmode</button>
+                        <button data-action="toggledevmode">Toggle Dev Mode</button>
+                        <button data-action="stopspectate">Stop Spectate</button>
+                        <button data-action="refreshself">Refresh</button>
+                    </div>
+
+                    <div class="section-title">Dev Mode</div>
+                    <div id="devStatus" class="group-line small">
+                        <span>Status:</span>
+                        <span id="devEnabledValue">Off</span>
+                    </div>
+                    <div class="dev-card">
+                        <div class="dev-row"><span>X</span><span id="devX">0.0000</span></div>
+                        <div class="dev-row"><span>Y</span><span id="devY">0.0000</span></div>
+                        <div class="dev-row"><span>Z</span><span id="devZ">0.0000</span></div>
+                        <div class="dev-row"><span>Heading</span><span id="devH">0.0000</span></div>
+                    </div>
+                    <div class="input-row">
+                        <input id="copyOutput" class="search" readonly value="vec4(0.0000, 0.0000, 0.0000, 0.0000)" />
+                    </div>
+                    <div class="action-grid">
+                        <button id="copyVecBtn">Copy vec4</button>
+                        <button id="copyPlainBtn">Copy plain</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

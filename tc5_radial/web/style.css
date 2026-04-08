@@ -1,0 +1,44 @@
+:root {
+  --primary: #b10f1f;
+  --text: #ffffff;
+  --panel: rgba(18,18,18,.95);
+  --border: rgba(255,255,255,.08);
+}
+body { margin: 0; overflow: hidden; background: transparent; font-family: Inter, Arial, sans-serif; }
+.hidden { display: none !important; }
+#radial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+#center {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(177,15,31,.24), rgba(18,18,18,.96));
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 45px rgba(0,0,0,.45);
+}
+.radial-item {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(18,18,18,.96), rgba(8,8,8,.94));
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  flex-direction: column;
+  gap: .3rem;
+}
+.radial-item:hover {
+  border-color: rgba(177,15,31,.55);
+  background: rgba(177,15,31,.16);
+}
+.icon { font-size: 1.6rem; }
+.label { font-size: .85rem; }

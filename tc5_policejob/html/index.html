@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TC5 Police</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="overlay"></div>
+    <div class="panel">
+      <div class="header">
+        <div>
+          <p class="eyebrow">TC5 POLICE</p>
+          <h1>Police Operations</h1>
+          <p id="subtitle" class="subtitle">Police access required</p>
+        </div>
+        <button id="closeBtn" class="ghost-btn">Close</button>
+      </div>
+
+      <div class="nav">
+        <button class="nav-btn active" data-tab="home">Home</button>
+        <button class="nav-btn" data-tab="armory">Armory</button>
+        <button class="nav-btn" data-tab="garage">Garage</button>
+      </div>
+
+      <div id="tab-home" class="tab active">
+        <div class="hero-card">
+          <div>
+            <p class="label">Officer</p>
+            <h2 id="officerName">Unknown Officer</h2>
+            <p id="officerMeta" class="muted">Not in department</p>
+          </div>
+          <div class="status-wrap">
+            <span id="dutyBadge" class="badge off">OFF DUTY</span>
+            <button id="toggleDutyBtn" class="primary-btn">Toggle Duty</button>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="card">
+            <p class="label">Quick Access</p>
+            <div class="quick-actions">
+              <button class="secondary-btn" data-open-tab="armory">Open Armory</button>
+              <button class="secondary-btn" data-open-tab="garage">Open Garage</button>
+            </div>
+          </div>
+          <div class="card">
+            <p class="label">Commands</p>
+            <div class="command-list">
+              <div><span>/pd</span><span>Open panel</span></div>
+              <div><span>/pdduty</span><span>Toggle duty</span></div>
+              <div><span>/pdhire</span><span>Hire officer</span></div>
+              <div><span>/pdgrade</span><span>Set grade</span></div>
+              <div><span>/pdfire</span><span>Remove officer</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-armory" class="tab">
+        <div class="tab-title-row">
+          <div>
+            <p class="label">Armory</p>
+            <h3>Issue duty kits</h3>
+          </div>
+        </div>
+        <div id="armoryList" class="grid"></div>
+      </div>
+
+      <div id="tab-garage" class="tab">
+        <div class="tab-title-row">
+          <div>
+            <p class="label">Garage</p>
+            <h3>Department fleet</h3>
+          </div>
+        </div>
+        <div id="garageList" class="grid"></div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

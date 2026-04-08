@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS tc5_doors (
+    id INT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    model VARCHAR(50) NOT NULL,
+    x DOUBLE NOT NULL,
+    y DOUBLE NOT NULL,
+    z DOUBLE NOT NULL,
+    heading DOUBLE NOT NULL DEFAULT 0,
+    locked TINYINT(1) NOT NULL DEFAULT 1,
+    is_double TINYINT(1) NOT NULL DEFAULT 0,
+    second_door LONGTEXT NULL,
+    interact_distance DOUBLE NOT NULL DEFAULT 2.5,
+    auto_lock TINYINT(1) NOT NULL DEFAULT 0,
+    lockpickable TINYINT(1) NOT NULL DEFAULT 0,
+    door_rate DOUBLE NOT NULL DEFAULT 1.0,
+    access_json LONGTEXT NULL,
+    created_by_char_id INT NULL,
+    door_type VARCHAR(20) NOT NULL DEFAULT 'standard',
+    roller_open_ratio DOUBLE NOT NULL DEFAULT 1.0,
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+);

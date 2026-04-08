@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="shell">
+      <div class="header">
+        <div>
+          <div class="eyebrow">TC5 BOSS MENU</div>
+          <h1 id="jobLabel">Boss Menu</h1>
+          <p id="jobInfo">Manage your society, team, storage, and salaries.</p>
+        </div>
+        <button id="closeBtn" class="secondary">Close</button>
+      </div>
+
+      <div class="tabs">
+        <button data-tab="society" class="tab active">Society</button>
+        <button data-tab="employees" class="tab">Employees</button>
+        <button data-tab="hire" class="tab">Hire Nearby</button>
+        <button data-tab="salaries" class="tab">Salaries</button>
+        <button data-tab="storage" class="tab">Storage</button>
+      </div>
+
+      <div id="tab-society" class="tab-panel active">
+        <div class="grid">
+          <section class="panel">
+            <div class="panel-title">Society Account</div>
+            <div class="money" id="societyBalance">$0</div>
+            <div class="money-actions">
+              <input id="moneyAmount" type="number" min="1" placeholder="Amount">
+              <button id="depositBtn">Deposit</button>
+              <button id="withdrawBtn" class="secondary">Withdraw</button>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">Quick Summary</div>
+            <div class="stat"><strong id="employeeCount">0</strong><span>Employees</span></div>
+            <div class="stat"><strong id="salaryCount">0</strong><span>Salary grades</span></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="tab-employees" class="tab-panel">
+        <section class="panel full">
+          <div class="panel-head-inline">
+            <div class="panel-title">Employees</div>
+            <button id="refreshBtn" class="secondary">Refresh</button>
+          </div>
+          <div id="employees" class="employees"></div>
+        </section>
+      </div>
+
+      <div id="tab-hire" class="tab-panel">
+        <section class="panel full">
+          <div class="panel-head-inline">
+            <div class="panel-title">Nearby Players</div>
+            <button id="nearbyBtn" class="secondary">Scan Nearby</button>
+          </div>
+          <div id="nearbyPlayers" class="employees"></div>
+        </section>
+      </div>
+
+      <div id="tab-salaries" class="tab-panel">
+        <section class="panel full">
+          <div class="panel-head-inline">
+            <div class="panel-title">Salary Management</div>
+          </div>
+          <div class="salary-form">
+            <input id="salaryGrade" type="number" min="0" placeholder="Grade">
+            <input id="salaryAmount" type="number" min="0" placeholder="Salary">
+            <button id="salarySaveBtn">Save Salary</button>
+          </div>
+          <div id="salaryList" class="employees"></div>
+        </section>
+      </div>
+
+      <div id="tab-storage" class="tab-panel">
+        <div class="grid">
+          <section class="panel">
+            <div class="panel-title">Boss Stash</div>
+            <p class="muted">Private management stash for boss-level supplies and paperwork.</p>
+            <button id="bossStashBtn">Open Boss Stash</button>
+          </section>
+          <section class="panel">
+            <div class="panel-title">Society Inventory</div>
+            <p class="muted">Shared society inventory for the whole job.</p>
+            <button id="societyInventoryBtn">Open Society Inventory</button>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TC5 Chat</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="chat-shell">
+        <div id="message-stack"></div>
+
+        <div id="input-shell" class="hidden">
+            <div class="input-header">
+                <div>
+                    <div class="eyebrow">TC5 FRAMEWORK</div>
+                    <div class="title">Chat</div>
+                </div>
+                <div class="hint">ENTER to send · ESC to close</div>
+            </div>
+
+            <div class="input-row">
+                <span class="prompt">&gt;</span>
+                <input id="chat-input" type="text" maxlength="240" autocomplete="off" spellcheck="false" placeholder="Type a message or /command" />
+            </div>
+
+            <div id="suggestion-box" class="suggestion-box hidden">
+                <div id="suggestion-name" class="suggestion-name"></div>
+                <div id="suggestion-help" class="suggestion-help"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
