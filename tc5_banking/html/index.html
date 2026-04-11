@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TC5 Banking</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="shell">
+      <div class="hero">
+        <div>
+          <div id="heroBrand" class="brand">TC5 BANK</div>
+          <div id="heroSubtitle" class="subtitle">Branch banking and ATM access</div>
+        </div>
+        <button id="closeButton" class="close-btn">×</button>
+      </div>
+
+      <div class="topbar">
+        <div class="pill">
+          <span class="label">Character</span>
+          <strong id="characterName">Unknown</strong>
+        </div>
+        <div class="pill">
+          <span class="label">Cash on Hand</span>
+          <strong id="cashOnHand">$0</strong>
+        </div>
+        <div class="pill">
+          <span class="label">Job</span>
+          <strong id="jobInfo">None</strong>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <section class="accounts-panel">
+          <div class="section-head">
+            <div>
+              <h2>Accounts</h2>
+              <p>Personal and business banking access</p>
+            </div>
+            <button id="refreshButton" class="ghost-btn">Refresh</button>
+          </div>
+          <div id="accountsList" class="accounts-list"></div>
+        </section>
+
+        <section class="workspace-panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="actions">Actions</button>
+            <button class="tab bank-only" data-tab="manage">Manage</button>
+            <button class="tab" data-tab="statements">Statements</button>
+          </div>
+
+          <div id="tab-overview" class="tab-pane active">
+            <div class="summary-grid">
+              <div class="summary-card accent">
+                <span>Selected Account</span>
+                <strong id="selectedAccountName">No account selected</strong>
+                <small id="selectedAccountMeta">Choose an account from the left</small>
+              </div>
+              <div class="summary-card">
+                <span>Balance</span>
+                <strong id="selectedBalance">$0</strong>
+                <small id="selectedType">Type</small>
+              </div>
+              <div class="summary-card">
+                <span>Account Number</span>
+                <strong id="selectedNumber">-</strong>
+                <small id="selectedSortCode">-</small>
+              </div>
+            </div>
+
+            <div class="atm-quick" id="atmQuickActions">
+              <button class="quick-action" data-amount="50">Withdraw $50</button>
+              <button class="quick-action" data-amount="100">Withdraw $100</button>
+              <button class="quick-action" data-amount="250">Withdraw $250</button>
+              <button class="quick-action" data-amount="500">Withdraw $500</button>
+            </div>
+          </div>
+
+          <div id="tab-actions" class="tab-pane">
+            <div class="action-grid">
+              <div class="action-card">
+                <h3>Deposit Cash</h3>
+                <input id="depositAmount" type="number" min="1" placeholder="Amount" />
+                <input id="depositReference" type="text" maxlength="100" placeholder="Reference (optional)" />
+                <button id="depositButton" class="primary-btn">Deposit</button>
+              </div>
+
+              <div class="action-card">
+                <h3>Withdraw Cash</h3>
+                <input id="withdrawAmount" type="number" min="1" placeholder="Amount" />
+                <input id="withdrawReference" type="text" maxlength="100" placeholder="Reference (optional)" />
+                <button id="withdrawButton" class="primary-btn">Withdraw</button>
+              </div>
+
+              <div class="action-card transfer-card">
+                <h3>Transfer</h3>
+                <input id="transferTarget" type="text" maxlength="20" placeholder="Target account number" />
+                <input id="transferAmount" type="number" min="1" placeholder="Amount" />
+                <input id="transferReference" type="text" maxlength="100" placeholder="Reference (optional)" />
+                <button id="transferButton" class="primary-btn">Transfer</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="tab-manage" class="tab-pane">
+            <div class="action-grid manage-grid">
+              <div class="action-card">
+                <h3>Create Personal Account</h3>
+                <input id="personalAccountName" type="text" maxlength="100" placeholder="Account name" />
+                <button id="createPersonalButton" class="primary-btn">Create Personal</button>
+              </div>
+
+              <div class="action-card">
+                <h3>Create Business Account</h3>
+                <input id="businessJobName" type="text" maxlength="50" placeholder="Job name" />
+                <input id="businessAccountName" type="text" maxlength="100" placeholder="Business account name" />
+                <button id="createBusinessButton" class="primary-btn">Create Business</button>
+              </div>
+
+              <div class="action-card">
+                <h3>Default Account</h3>
+                <p class="helper">Set the selected personal account as your default. Legacy core bank sync follows this account.</p>
+                <button id="setDefaultButton" class="primary-btn">Set Selected as Default</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="tab-statements" class="tab-pane">
+            <div id="statementList" class="statement-list"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

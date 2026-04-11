@@ -6,6 +6,14 @@ TC5Items = {
         image = 'water.png'
     },
 
+    cash = {
+    label = 'Cash',
+    weight = 0,
+    stack = true,
+    image = 'cash.png',
+    description = 'Physical money'
+},
+
     lockpick = {
         label = 'Lockpick',
         weight = 200,
