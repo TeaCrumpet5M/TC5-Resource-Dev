@@ -1,40 +1,38 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TC5 Phone</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="phone-root" class="hidden">
     <div class="phone-shell">
       <div class="phone-topbar">
-        <div id="phone-time">00:00</div>
-        <div class="phone-status">TC5 • Phone</div>
+        <span id="phone-time">00:00</span>
+        <span>TC5 • Phone</span>
+        <span id="signal">LTE</span>
       </div>
-
-      <div id="phone-screen" class="phone-screen">
+      <div class="phone-screen">
         <div id="lock-screen" class="view hidden">
           <div class="lock-time" id="lock-time">00:00</div>
           <div class="lock-label">Tap to unlock</div>
         </div>
-
         <div id="home-screen" class="view">
           <div class="header-card">
             <div>
               <div class="eyebrow">TC5 Phone</div>
-              <h1 id="home-name">Loading...</h1>
-              <p id="home-number">000-0000</p>
+              <h1 id="home-name"># Loading...</h1>
+              <div id="home-number">000-0000</div>
             </div>
-            <button class="small-btn" id="refresh-home">Refresh</button>
+            <button id="refresh-home" class="small-btn">Refresh</button>
           </div>
-
-          <div class="apps-grid" id="apps-grid"></div>
+          <div id="apps-grid" class="apps-grid"></div>
         </div>
-
         <div id="app-screen" class="view hidden">
           <div class="app-header">
-            <button class="icon-btn" id="back-home">←</button>
+            <button id="nav-back" class="icon-btn">←</button>
             <div>
               <div class="eyebrow" id="app-subtitle">Application</div>
               <h2 id="app-title">App</h2>
@@ -43,14 +41,12 @@
           <div id="app-content" class="app-content"></div>
         </div>
       </div>
-
       <div class="phone-navbar">
-        <button class="nav-btn" id="nav-home">●</button>
-        <button class="nav-btn" id="nav-close">✕</button>
+        <button id="nav-home" class="nav-btn">●</button>
+        <button id="nav-close" class="nav-btn">✕</button>
       </div>
     </div>
   </div>
-
   <script src="app.js"></script>
 </body>
 </html>

@@ -3,22 +3,18 @@ TC5Tablet = TC5Tablet or {}
 TC5Tablet.Config = {
     TabletItem = 'tablet',
     OpenCommand = 'tablet',
-
     Prop = {
         Model = `prop_cs_tablet`,
         Bone = 57005,
         Offset = vec3(0.17, 0.10, -0.13),
         Rotation = vec3(20.0, 180.0, 180.0)
     },
-
     Animation = {
         Dict = 'amb@world_human_seat_wall_tablet@female@base',
         Clip = 'base',
         Flag = 49
     },
-
     BootTime = 900,
-
     Apps = {
         boosting = {
             id = 'boosting',
@@ -28,26 +24,19 @@ TC5Tablet.Config = {
             accent = '#ff5f57'
         }
     },
-
+    ExternalApps = {
+        {
+            resource = 'tc5_mechanicshops',
+            export = 'BuildTabletApp'
+        }
+    },
     Boosting = {
         CooldownSeconds = 15,
         StartingRep = 0,
         Tiers = {
-            D = {
-                minRep = 0,
-                payout = { min = 1500, max = 2500 },
-                vehicles = { 'blista', 'asea', 'prairie' }
-            },
-            C = {
-                minRep = 3,
-                payout = { min = 2500, max = 4000 },
-                vehicles = { 'sultan', 'buffalo', 'schafter2' }
-            },
-            B = {
-                minRep = 8,
-                payout = { min = 4000, max = 6500 },
-                vehicles = { 'jugular', 'kuruma', 'elegy' }
-            }
+            D = { minRep = 0, payout = { min = 1500, max = 2500 }, vehicles = { 'blista', 'asea', 'prairie' } },
+            C = { minRep = 3, payout = { min = 2500, max = 4000 }, vehicles = { 'sultan', 'buffalo', 'schafter2' } },
+            B = { minRep = 8, payout = { min = 4000, max = 6500 }, vehicles = { 'jugular', 'kuruma', 'elegy' } }
         },
         PickupLocations = {
             vec4(215.84, -810.12, 30.73, 157.2),

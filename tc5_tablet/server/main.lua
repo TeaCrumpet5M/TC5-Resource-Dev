@@ -14,38 +14,24 @@ local function getCharacterId(src)
     return exports['tc5_core']:GetCharacterId(src)
 end
 
-local function getPlayer(src)
-    return exports['tc5_core']:GetPlayer(src)
-end
-
 local function getInventory(src)
     return exports['tc5_inventory']:GetInventory(src)
 end
 
 local function hasItem(src, itemName)
-    if not itemName or itemName == '' then
-        return true
-    end
-
+    if not itemName or itemName == '' then return true end
     local inventory = getInventory(src)
-    if not inventory or not inventory.items then
-        return false
-    end
-
+    if not inventory or not inventory.items then return false end
     for _, item in pairs(inventory.items) do
         if item and item.name == itemName and (tonumber(item.amount) or 0) > 0 then
             return true
         end
     end
-
     return false
 end
 
 local function getPlayerState(charId)
-    PlayerData[charId] = PlayerData[charId] or {
-        rep = TC5Tablet.Config.Boosting.StartingRep or 0
-    }
-
+    PlayerData[charId] = PlayerData[charId] or { rep = TC5Tablet.Config.Boosting.StartingRep or 0 }
     return PlayerData[charId]
 end
 
@@ -63,20 +49,24 @@ local function buildApps(src)
         end
     end
 
-    table.sort(apps, function(a, b)
-        return a.label < b.label
-    end)
+    for _, provider in ipairs(TC5Tablet.Config.ExternalApps or {}) do
+        if provider.resource and provider.export and GetResourceState(provider.resource) == 'started' then
+            local ok, externalApp = pcall(function()
+                return exports[provider.resource][provider.export](src)
+            end)
+            if ok and type(externalApp) == 'table' then
+                apps[#apps + 1] = externalApp
+            end
+        end
+    end
 
+    table.sort(apps, function(a, b) return tostring(a.label or '') < tostring(b.label or '') end)
     return apps
 end
 
 local function buildBoostingContracts(charId)
     local state = getPlayerState(charId)
-    local output = {
-        rep = state.rep,
-        contracts = {}
-    }
-
+    local output = { rep = state.rep, contracts = {} }
     for tier, info in pairs(TC5Tablet.Config.Boosting.Tiers) do
         output.contracts[#output.contracts + 1] = {
             tier = tier,
@@ -86,11 +76,7 @@ local function buildBoostingContracts(charId)
             unlocked = state.rep >= info.minRep
         }
     end
-
-    table.sort(output.contracts, function(a, b)
-        return a.minRep < b.minRep
-    end)
-
+    table.sort(output.contracts, function(a, b) return a.minRep < b.minRep end)
     return output
 end
 
@@ -104,9 +90,7 @@ local function createBoostingContract(charId)
         end
     end
 
-    if #available == 0 then
-        return nil
-    end
+    if #available == 0 then return nil end
 
     local selected = available[math.random(1, #available)]
     local pickup = TC5Tablet.Config.Boosting.PickupLocations[math.random(1, #TC5Tablet.Config.Boosting.PickupLocations)]
@@ -119,27 +103,15 @@ local function createBoostingContract(charId)
         payout = math.random(selected.info.payout.min, selected.info.payout.max),
         vehicle = vehicle,
         vehicleLabel = vehicle:gsub('^%l', string.upper),
-        pickup = {
-            x = pickup.x,
-            y = pickup.y,
-            z = pickup.z,
-            w = pickup.w
-        },
-        dropoff = {
-            x = dropoff.x,
-            y = dropoff.y,
-            z = dropoff.z
-        }
+        pickup = { x = pickup.x, y = pickup.y, z = pickup.z, w = pickup.w },
+        dropoff = { x = dropoff.x, y = dropoff.y, z = dropoff.z }
     }
 end
 
 RegisterNetEvent('tc5_tablet:server:openTablet', function()
     local src = source
     local charId = getCharacterId(src)
-    if not charId then
-        return
-    end
-
+    if not charId then return end
     if not hasItem(src, TC5Tablet.Config.TabletItem) then
         notify(src, 'You need a tablet in your inventory.', 'error')
         return
@@ -156,10 +128,7 @@ end)
 RegisterNetEvent('tc5_tablet:server:requestBoostingData', function()
     local src = source
     local charId = getCharacterId(src)
-    if not charId then
-        return
-    end
-
+    if not charId then return end
     TriggerClientEvent('tc5_tablet:client:updateBoostingData', src, {
         boosting = buildBoostingContracts(charId),
         activeContract = ActiveContracts[charId]
@@ -169,10 +138,7 @@ end)
 RegisterNetEvent('tc5_tablet:server:startBoostContract', function()
     local src = source
     local charId = getCharacterId(src)
-    if not charId then
-        return
-    end
-
+    if not charId then return end
     if not hasItem(src, TC5Tablet.Config.TabletItem) then
         notify(src, 'You need a tablet in your inventory.', 'error')
         return
@@ -194,8 +160,8 @@ RegisterNetEvent('tc5_tablet:server:startBoostContract', function()
         notify(src, 'System cooling down. Try again in a moment.', 'error')
         return
     end
-    LastRequestAt[charId] = now
 
+    LastRequestAt[charId] = now
     local contract = createBoostingContract(charId)
     if not contract then
         notify(src, 'No contracts are available for your rep level yet.', 'error')
@@ -209,9 +175,7 @@ end)
 RegisterNetEvent('tc5_tablet:server:completeBoostContract', function(contractId)
     local src = source
     local charId = getCharacterId(src)
-    if not charId then
-        return
-    end
+    if not charId then return end
 
     local contract = ActiveContracts[charId]
     if not contract or contract.id ~= contractId then
@@ -219,16 +183,14 @@ RegisterNetEvent('tc5_tablet:server:completeBoostContract', function(contractId)
         return
     end
 
-    local player = getPlayer(src)
+    local player = exports['tc5_core']:GetPlayer(src)
     if not player or type(player.AddCash) ~= 'function' then
         notify(src, 'Unable to reward player cash.', 'error')
         return
     end
 
     player:AddCash(contract.payout)
-    if type(player.SaveCharacter) == 'function' then
-        player:SaveCharacter()
-    end
+    if type(player.SaveCharacter) == 'function' then player:SaveCharacter() end
 
     local state = getPlayerState(charId)
     state.rep = state.rep + 1
@@ -239,12 +201,4 @@ RegisterNetEvent('tc5_tablet:server:completeBoostContract', function(contractId)
         rep = state.rep,
         tier = contract.tier
     })
-end)
-
-AddEventHandler('playerDropped', function()
-    local src = source
-    local charId = getCharacterId(src)
-    if charId then
-        ActiveContracts[charId] = nil
-    end
 end)

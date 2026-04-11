@@ -4,8 +4,8 @@ lua54 'yes'
 
 name 'tc5_phone'
 author 'OpenAI'
-description 'TC5 Phone - Phase 1 and 2 starter phone'
-version '1.0.0'
+description 'TC5 Phone - upgraded UI with mechanic integration'
+version '1.1.1'
 
 ui_page 'web/index.html'
 

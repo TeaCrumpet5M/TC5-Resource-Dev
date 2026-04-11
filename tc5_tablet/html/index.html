@@ -1,88 +1,52 @@
-<!DOCTYPE html>
-<html lang="en" style="background: transparent !important;">
+<!doctype html>
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TC5 Tablet</title>
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TC5 Tablet</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body style="background: transparent !important; margin: 0; overflow: hidden;">
-    <div id="app" style="display:none;">
-        <div class="tablet-shell">
-            <div class="tablet-camera"></div>
-            <div class="tablet-screen">
-                <div id="bootOverlay" class="boot-overlay hidden">
-                    <div class="boot-logo">TC5</div>
-                    <div class="boot-subtitle">Tablet OS</div>
-                </div>
-
-                <div class="statusbar">
-                    <div id="statusTime">00:00</div>
-                    <div class="statusRight">
-                        <span id="statusName">USER</span>
-                        <span>USB</span>
-                        <span>LTE</span>
-                    </div>
-                </div>
-
-                <div id="homeView" class="view">
-                    <div class="hero-card">
-                        <div>
-                            <div class="hero-title">TC5 Tablet</div>
-                            <div class="hero-subtitle">Modular software unlocked by USB devices</div>
-                        </div>
-                        <button id="closeBtn" class="ghost-btn">Close</button>
-                    </div>
-
-                    <div class="section-title">Installed apps</div>
-                    <div id="appGrid" class="app-grid"></div>
-                    <div id="emptyState" class="empty-state hidden">
-                        No USB software detected.
-                    </div>
-                </div>
-
-                <div id="boostingView" class="view hidden">
-                    <div class="page-header">
-                        <button id="backBtn" class="ghost-btn">Back</button>
-                        <div>
-                            <div class="page-title">Boosting</div>
-                            <div class="page-subtitle">Basic example app</div>
-                        </div>
-                    </div>
-
-                    <div class="stats-row">
-                        <div class="stat-card">
-                            <span class="stat-label">Reputation</span>
-                            <strong id="repValue">0</strong>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Status</span>
-                            <strong id="statusValue">Idle</strong>
-                        </div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-head">
-                            <div>
-                                <div class="panel-title">Available contract tiers</div>
-                                <div class="panel-subtitle">Unlock higher payouts with more rep</div>
-                            </div>
-                            <button id="refreshBoostingBtn" class="ghost-btn">Refresh</button>
-                        </div>
-                        <div id="contractsList" class="contracts-list"></div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-title">Quick contract</div>
-                        <div class="panel-subtitle">Generates a random contract based on unlocked tiers.</div>
-                        <button id="startBoostingBtn" class="action-btn">Request Contract</button>
-                    </div>
-                </div>
-            </div>
-            <div class="tablet-home-indicator"></div>
+<body>
+  <div id="tablet" class="tablet hidden">
+    <div class="shell">
+      <div class="topbar">
+        <div>
+          <div class="brand">TC5</div>
+          <div class="subtitle" id="subtitle">Tablet OS</div>
         </div>
-    </div>
+        <button id="closeBtn">Close</button>
+      </div>
 
-    <script src="app.js"></script>
+      <div id="homeView" class="view">
+        <div class="sectionTitle">Installed apps</div>
+        <div id="apps" class="apps"></div>
+      </div>
+
+      <div id="boostingView" class="view hidden">
+        <button class="backBtn" data-back="home">← Back</button>
+        <div class="sectionTitle">Boosting</div>
+        <div id="boostingSummary" class="card"></div>
+        <div id="boostContracts" class="stack"></div>
+        <div class="actionsRow">
+          <button id="startBoostBtn">Request Contract</button>
+        </div>
+      </div>
+
+      <div id="mechanicView" class="view hidden">
+        <button class="backBtn" data-back="home">← Back</button>
+        <div class="sectionTitle">Mechanic Console</div>
+        <div class="actionsRow">
+          <button id="scanVehicleBtn">Scan nearby vehicle</button>
+          <button id="toggleDutyBtn">Toggle duty</button>
+          <button id="showCraftingBtn">Crafting</button>
+        </div>
+        <div id="mechanicStatus" class="statusLine">Waiting for scan…</div>
+        <div id="diagnosticPanel" class="stack"></div>
+        <div id="repairButtons" class="actionsRow wrap"></div>
+        <div id="craftingPanel" class="stack hidden"></div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
 </body>
 </html>

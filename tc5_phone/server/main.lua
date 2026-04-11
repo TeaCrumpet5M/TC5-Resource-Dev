@@ -169,6 +169,22 @@ function TC5Phone.Server.BuildState(src)
     local number = ensurePhoneNumber(charId)
     local identity = getCharacterIdentity(src)
     local job = getJobData(src)
+    local threads = getThreads(charId)
+
+    local garageData = (function()
+        local ok, result = pcall(function()
+            return exports['tc5_garage']:GetPhoneGarageData(src)
+        end)
+
+        if ok and type(result) == 'table' then
+            return result
+        end
+
+        return {
+            vehicles = {},
+            message = 'Garage integration ready for tc5_garage or your vehicle module.'
+        }
+    end)()
 
     local state = {
         profile = {
@@ -181,33 +197,15 @@ function TC5Phone.Server.BuildState(src)
             wallpaper = TC5Phone.Config.DefaultWallpaper
         },
         contacts = getContacts(charId),
-        threads = getThreads(charId),
+        threads = threads,
+        messages = {
+            threads = threads
+        },
         apps = getApps(),
         jobs = {
             current = job
         },
-        garage = (function()
-    local ok, result = pcall(function()
-        return exports['tc5_garage']:GetPhoneGarageData(src)
-    end)
-
-    if ok and type(result) == 'table' then
-        return result
-    end
-
-    return {
-        vehicles = {},
-        message = 'Garage integration ready for tc5_garage or your vehicle module.'
-    }
-end)(),
-```
-
-And in `tc5_phone/client/main.lua`, add:
-
-```lua
-RegisterNetEvent('tc5_phone:client:garageRefreshRequested', function()
-    TriggerServerEvent('tc5_phone:server:refresh')
-end)
+        garage = garageData,
         bank = {
             balance = identity.bank,
             cash = identity.cash,
@@ -302,7 +300,7 @@ function TC5Phone.Server.SendMessage(src, peerNumber, content)
             VALUES (?, ?, ?, 'incoming', ?)
         ]], { target.char_id, senderNumber, senderNumber, content })
 
-        for playerSrc, cached in pairs(TC5Phone.Server.Cache) do
+        for playerSrc, _ in pairs(TC5Phone.Server.Cache) do
             local targetCharId = getCharacterId(playerSrc)
             if targetCharId == target.char_id then
                 notify(playerSrc, {

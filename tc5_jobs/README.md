@@ -1,23 +1,13 @@
-# tc5_jobs v1.0.2
+# tc5_jobs
 
-## Added
-- Built-in `police` job registration
-- Matches the grades used by `tc5_policejob`
-- Keeps the sync and character ID fixes already applied
-
-## Included jobs
-- unemployed
-- police
-
-## Police grades
-- 0 Cadet
-- 1 Officer
-- 2 Senior Officer
-- 3 Sergeant
-- 4 Lieutenant
-- 5 Chief
+Drop-in dynamic jobs resource for TC5.
 
 ## Commands
 - /tc5_job
 - /tc5_duty
 - /tc5_setjob [id] [job] [grade]
+
+## Notes
+- Jobs can be registered at runtime with exports['tc5_jobs']:RegisterJob({...})
+- This package ships with unemployed and police by default
+- Multi-shop mechanic jobs are registered by the tc5_mechanicjob resource

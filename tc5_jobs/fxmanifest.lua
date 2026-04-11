@@ -5,7 +5,7 @@ lua54 'yes'
 name 'tc5_jobs'
 author 'OpenAI'
 description 'Dynamic jobs module for the TC5 framework'
-version '1.0.1'
+version '1.0.2'
 
 shared_scripts {
     'shared/config.lua',
