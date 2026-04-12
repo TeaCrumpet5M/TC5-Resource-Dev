@@ -1,238 +1,274 @@
+
 const app = document.getElementById('app');
 const closeButton = document.getElementById('closeButton');
 const refreshButton = document.getElementById('refreshButton');
 const accountsList = document.getElementById('accountsList');
-const statementList = document.getElementById('statementList');
-const cashOnHand = document.getElementById('cashOnHand');
 const characterName = document.getElementById('characterName');
+const cashOnHand = document.getElementById('cashOnHand');
 const jobInfo = document.getElementById('jobInfo');
-const heroBrand = document.getElementById('heroBrand');
-const heroSubtitle = document.getElementById('heroSubtitle');
-const atmQuickActions = document.getElementById('atmQuickActions');
-
+const modeInfo = document.getElementById('modeInfo');
 const selectedAccountName = document.getElementById('selectedAccountName');
 const selectedAccountMeta = document.getElementById('selectedAccountMeta');
 const selectedBalance = document.getElementById('selectedBalance');
 const selectedType = document.getElementById('selectedType');
 const selectedNumber = document.getElementById('selectedNumber');
 const selectedSortCode = document.getElementById('selectedSortCode');
+const statementList = document.getElementById('statementList');
+const invoiceList = document.getElementById('invoiceList');
+const payrollList = document.getElementById('payrollList');
 
-const depositAmount = document.getElementById('depositAmount');
-const depositReference = document.getElementById('depositReference');
-const withdrawAmount = document.getElementById('withdrawAmount');
-const withdrawReference = document.getElementById('withdrawReference');
-const transferTarget = document.getElementById('transferTarget');
-const transferAmount = document.getElementById('transferAmount');
-const transferReference = document.getElementById('transferReference');
-const personalAccountName = document.getElementById('personalAccountName');
-const businessJobName = document.getElementById('businessJobName');
-const businessAccountName = document.getElementById('businessAccountName');
-
-const depositButton = document.getElementById('depositButton');
-const withdrawButton = document.getElementById('withdrawButton');
-const transferButton = document.getElementById('transferButton');
-const createPersonalButton = document.getElementById('createPersonalButton');
-const createBusinessButton = document.getElementById('createBusinessButton');
-const setDefaultButton = document.getElementById('setDefaultButton');
+const tabs = Array.from(document.querySelectorAll('.tab'));
+const panes = Array.from(document.querySelectorAll('.tab-pane'));
+const bankOnlyTabs = Array.from(document.querySelectorAll('.bank-only'));
+const atmQuickActions = document.getElementById('atmQuickActions');
 
 let state = {
   mode: 'bank',
+  character: null,
+  cashOnHand: 0,
+  job: null,
   accounts: [],
   statements: {},
-  selectedAccountId: null,
-  cashOnHand: 0,
-  character: null,
-  job: null,
+  payroll: {},
+  pendingInvoices: [],
+  focusAccountId: null,
   config: {}
 };
+
+let selectedAccountId = null;
+let activeTab = 'overview';
 
 const post = async (endpoint, payload = {}) => {
   await fetch(`https://${GetParentResourceName()}/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload)
   });
 };
 
 const money = (value) => `$${Number(value || 0).toLocaleString()}`;
 
-const getSelectedAccount = () => state.accounts.find((account) => Number(account.id) === Number(state.selectedAccountId)) || null;
-
-const setSelectedAccount = (accountId) => {
-  state.selectedAccountId = Number(accountId);
-  render();
+const getSelectedAccount = () => {
+  if (!state.accounts.length) return null;
+  if (selectedAccountId) {
+    const found = state.accounts.find((a) => Number(a.id) === Number(selectedAccountId));
+    if (found) return found;
+  }
+  const fallback = state.accounts.find((a) => Number(a.id) === Number(state.focusAccountId))
+    || state.accounts[0];
+  selectedAccountId = fallback?.id || null;
+  return fallback || null;
 };
 
-const renderAccountList = () => {
-  accountsList.innerHTML = '';
+const switchTab = (tab) => {
+  activeTab = tab;
+  tabs.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tab));
+  panes.forEach((pane) => pane.classList.toggle('active', pane.id === `tab-${tab}`));
+};
 
+const setModeVisibility = () => {
+  const mobile = state.mode === 'mobile';
+  const atm = state.mode === 'atm';
+
+  bankOnlyTabs.forEach((tab) => tab.classList.toggle('hidden', mobile || atm));
+  document.getElementById('tab-manage').classList.toggle('hidden', mobile || atm);
+
+  if (mobile && activeTab === 'manage') switchTab('overview');
+  if (atm && activeTab === 'manage') switchTab('overview');
+
+  const depositButton = document.getElementById('depositButton');
+  const withdrawButton = document.getElementById('withdrawButton');
+
+  if (state.mode === 'mobile') {
+    document.getElementById('depositAmount').disabled = true;
+    document.getElementById('depositReference').disabled = true;
+    depositButton.disabled = true;
+    document.getElementById('withdrawAmount').disabled = true;
+    document.getElementById('withdrawReference').disabled = true;
+    withdrawButton.disabled = true;
+    atmQuickActions.classList.add('hidden');
+  } else {
+    const atmDepositDisabled = atm && state.config?.enableATMDeposits === false;
+    document.getElementById('depositAmount').disabled = atmDepositDisabled;
+    document.getElementById('depositReference').disabled = atmDepositDisabled;
+    depositButton.disabled = atmDepositDisabled;
+    document.getElementById('withdrawAmount').disabled = false;
+    document.getElementById('withdrawReference').disabled = false;
+    withdrawButton.disabled = false;
+    atmQuickActions.classList.toggle('hidden', !atm);
+  }
+
+  const transferDisabled = atm && state.config?.enableATMTransfers === false;
+  document.getElementById('transferTarget').disabled = transferDisabled;
+  document.getElementById('transferAmount').disabled = transferDisabled;
+  document.getElementById('transferReference').disabled = transferDisabled;
+  document.getElementById('transferButton').disabled = transferDisabled;
+};
+
+const renderAccounts = () => {
+  accountsList.innerHTML = '';
   if (!state.accounts.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.textContent = 'No accounts available yet.';
-    accountsList.appendChild(empty);
+    accountsList.innerHTML = '<div class="statement-card empty">No accounts available yet.</div>';
     return;
   }
 
+  const selected = getSelectedAccount();
+
   state.accounts.forEach((account) => {
     const card = document.createElement('div');
-    card.className = 'account-card';
-    if (Number(account.id) === Number(state.selectedAccountId)) {
-      card.classList.add('active');
-    }
+    card.className = `account-card ${selected && Number(selected.id) === Number(account.id) ? 'active' : ''}`;
 
-    const top = document.createElement('div');
-    top.className = 'account-top';
-    top.innerHTML = `
-      <div>
-        <div class="account-title">${account.name}</div>
-        <div class="account-subtitle">${account.accountNumber} • ${account.sortCode}</div>
+    card.innerHTML = `
+      <div class="account-top">
+        <div>
+          <div class="account-name">${account.name}</div>
+          <div class="account-meta">${account.accountNumber} • ${account.sortCode}</div>
+        </div>
+        <div class="balance">${money(account.balance)}</div>
       </div>
-      <div class="account-balance">${money(account.balance)}</div>
+      <div class="account-top" style="margin-top: 10px;">
+        <div class="account-meta">${account.type}${account.businessJobName ? ' • ' + account.businessJobName : ''}</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${account.isDefault ? '<span class="badge">default</span>' : ''}
+          ${account.isFrozen ? '<span class="badge">frozen</span>' : ''}
+          <span class="badge">${account.permissions?.role || 'member'}</span>
+        </div>
+      </div>
     `;
 
-    const bottom = document.createElement('div');
-    bottom.className = 'account-bottom';
-    bottom.innerHTML = `
-      <div class="account-type">${account.type}</div>
-      <div class="account-role">${account.permissions?.role || ''}</div>
-    `;
+    card.addEventListener('click', () => {
+      selectedAccountId = account.id;
+      render();
+    });
 
-    const badges = document.createElement('div');
-    badges.className = 'badges';
-    if (account.isDefault) {
-      const badge = document.createElement('div');
-      badge.className = 'badge default';
-      badge.textContent = 'Default';
-      badges.appendChild(badge);
-    }
-    if (account.type === 'business') {
-      const badge = document.createElement('div');
-      badge.className = 'badge business';
-      badge.textContent = account.businessJobName || 'Business';
-      badges.appendChild(badge);
-    }
-    if (account.isFrozen) {
-      const badge = document.createElement('div');
-      badge.className = 'badge';
-      badge.textContent = 'Frozen';
-      badges.appendChild(badge);
-    }
-
-    card.appendChild(top);
-    card.appendChild(bottom);
-    if (badges.childNodes.length) card.appendChild(badges);
-
-    card.addEventListener('click', () => setSelectedAccount(account.id));
     accountsList.appendChild(card);
   });
 };
 
 const renderOverview = () => {
   const selected = getSelectedAccount();
-
   if (!selected) {
     selectedAccountName.textContent = 'No account selected';
-    selectedAccountMeta.textContent = 'Choose an account from the left';
+    selectedAccountMeta.textContent = 'Create or select an account';
     selectedBalance.textContent = '$0';
-    selectedType.textContent = 'Type';
+    selectedType.textContent = '-';
     selectedNumber.textContent = '-';
     selectedSortCode.textContent = '-';
+    payrollList.innerHTML = '';
+    statementList.innerHTML = '<div class="statement-card empty">No transactions to show.</div>';
     return;
   }
 
   selectedAccountName.textContent = selected.name;
-  selectedAccountMeta.textContent = `${selected.permissions?.role || 'member'} access`;
+  selectedAccountMeta.textContent = selected.businessJobName
+    ? `${selected.type} • ${selected.businessJobName}`
+    : `${selected.type}${selected.isDefault ? ' • default' : ''}`;
   selectedBalance.textContent = money(selected.balance);
-  selectedType.textContent = `${selected.type}${selected.type === 'business' && selected.businessJobName ? ` • ${selected.businessJobName}` : ''}`;
+  selectedType.textContent = `${selected.type}${selected.permissions?.role ? ' • ' + selected.permissions.role : ''}`;
   selectedNumber.textContent = selected.accountNumber;
   selectedSortCode.textContent = selected.sortCode;
+
+  const accessInput = document.getElementById('businessAccessGrade');
+  if (accessInput && selected.permissions?.minGrade !== undefined) {
+    accessInput.value = selected.permissions.minGrade;
+  }
+
+  const payroll = state.payroll?.[String(selected.id)] || [];
+  payrollList.innerHTML = payroll.length
+    ? payroll.map((row) => `<div class="mini-item"><span>Grade ${row.grade}</span><strong>${money(row.amount)}</strong></div>`).join('')
+    : '<div class="statement-card empty">No payroll entries for this account.</div>';
 };
 
 const renderStatements = () => {
-  statementList.innerHTML = '';
   const selected = getSelectedAccount();
-  if (!selected) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.textContent = 'Select an account to view statements.';
-    statementList.appendChild(empty);
+  const statements = selected ? (state.statements?.[String(selected.id)] || []) : [];
+  statementList.innerHTML = '';
+
+  if (!statements.length) {
+    statementList.innerHTML = '<div class="statement-card empty">No transactions to show.</div>';
     return;
   }
 
-  const rows = state.statements?.[String(selected.id)] || [];
-  if (!rows.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.textContent = 'No transaction history yet.';
-    statementList.appendChild(empty);
-    return;
-  }
-
-  rows.forEach((row) => {
-    const element = document.createElement('div');
-    element.className = 'statement-row';
-
-    const isNegative = ['withdraw', 'transfer_out', 'fee'].includes(row.type);
-    const amountClass = isNegative ? 'negative' : 'positive';
-    const symbol = isNegative ? '-' : '+';
-
-    element.innerHTML = `
-      <div>
-        <div class="statement-type">${row.type.replaceAll('_', ' ')}</div>
-        <div class="statement-date">${row.createdAt || ''}</div>
+  statements.forEach((entry) => {
+    const row = document.createElement('div');
+    row.className = 'statement-card';
+    row.innerHTML = `
+      <div class="statement-top">
+        <div>
+          <div class="account-name">${entry.type.replaceAll('_', ' ')}</div>
+          <div class="muted">${entry.createdAt}</div>
+        </div>
+        <div class="balance">${money(entry.amount)}</div>
       </div>
-      <div class="statement-amount ${amountClass}">${symbol}${money(row.amount)}</div>
-      <div class="statement-ref">${row.reference || 'No reference'}${row.targetAccountNumber ? ` • ${row.targetAccountNumber}` : ''}</div>
-      <div class="statement-balance">Balance: ${money(row.balanceAfter)}</div>
+      <div class="muted" style="margin-top:8px;">${entry.reference || 'No reference'}</div>
+      <div class="muted" style="margin-top:6px;">Balance after: ${money(entry.balanceAfter)}${entry.targetAccountNumber ? ` • ${entry.targetAccountNumber}` : ''}</div>
     `;
-
-    statementList.appendChild(element);
+    statementList.appendChild(row);
   });
 };
 
-const applyMode = () => {
-  const bankOnlyTabs = document.querySelectorAll('.bank-only');
-  if (state.mode === 'atm') {
-    heroBrand.textContent = 'TC5 ATM';
-    heroSubtitle.textContent = 'Quick access cash machine';
-    bankOnlyTabs.forEach((el) => el.classList.add('hidden'));
-    atmQuickActions.classList.remove('hidden');
-  } else {
-    heroBrand.textContent = 'TC5 BANK';
-    heroSubtitle.textContent = 'Branch banking and account management';
-    bankOnlyTabs.forEach((el) => el.classList.remove('hidden'));
-    atmQuickActions.classList.remove('hidden');
+const renderInvoices = () => {
+  invoiceList.innerHTML = '';
+  const invoices = state.pendingInvoices || [];
+
+  if (!invoices.length) {
+    invoiceList.innerHTML = '<div class="statement-card empty">No pending invoices.</div>';
+    return;
   }
+
+  invoices.forEach((invoice) => {
+    const card = document.createElement('div');
+    card.className = 'invoice-card';
+    card.innerHTML = `
+      <div class="statement-top">
+        <div>
+          <div class="account-name">Invoice #${invoice.id}</div>
+          <div class="muted">${invoice.fromName} • ${invoice.accountName}</div>
+        </div>
+        <div class="balance">${money(invoice.amount)}</div>
+      </div>
+      <div class="muted" style="margin-top:8px;">${invoice.reason || 'No reason provided'}</div>
+      <div class="muted" style="margin-top:6px;">${invoice.createdAt}</div>
+      <div class="invoice-actions">
+        <button class="primary-btn" data-accept="${invoice.id}">Pay</button>
+        <button class="ghost-btn" data-decline="${invoice.id}">Decline</button>
+      </div>
+    `;
+    invoiceList.appendChild(card);
+  });
+
+  invoiceList.querySelectorAll('[data-accept]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await post('acceptInvoice', { invoiceId: Number(button.dataset.accept) });
+    });
+  });
+
+  invoiceList.querySelectorAll('[data-decline]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await post('declineInvoice', { invoiceId: Number(button.dataset.decline) });
+    });
+  });
 };
 
 const render = () => {
-  cashOnHand.textContent = money(state.cashOnHand);
   characterName.textContent = state.character?.fullName || 'Unknown';
-  jobInfo.textContent = state.job?.name ? `${state.job.name} (${state.job.grade ?? 0})` : 'None';
+  cashOnHand.textContent = money(state.cashOnHand);
+  jobInfo.textContent = state.job?.name ? `${state.job.name} (grade ${state.job.grade})` : 'None';
+  modeInfo.textContent = state.mode.charAt(0).toUpperCase() + state.mode.slice(1);
 
-  if (!state.selectedAccountId && state.accounts.length) {
-    const defaultAccount = state.accounts.find((account) => account.isDefault) || state.accounts[0];
-    state.selectedAccountId = defaultAccount.id;
-  }
-
-  applyMode();
-  renderAccountList();
+  setModeVisibility();
+  renderAccounts();
   renderOverview();
   renderStatements();
+  renderInvoices();
 };
 
 window.addEventListener('message', (event) => {
   const { action, data } = event.data || {};
 
   if (action === 'open' || action === 'refresh') {
-    state = {
-      ...state,
-      ...data,
-      accounts: data?.accounts || [],
-      statements: data?.statements || {},
-      selectedAccountId: data?.focusAccountId || state.selectedAccountId
-    };
+    state = data || state;
+    selectedAccountId = data?.focusAccountId || selectedAccountId || state.accounts?.[0]?.id || null;
     app.classList.remove('hidden');
     render();
   }
@@ -242,75 +278,126 @@ window.addEventListener('message', (event) => {
   }
 });
 
-closeButton?.addEventListener('click', async () => post('close'));
-refreshButton?.addEventListener('click', async () => post('refresh', { focusAccountId: state.selectedAccountId }));
-
-document.querySelectorAll('.tab').forEach((tabButton) => {
-  tabButton.addEventListener('click', () => {
-    const tabName = tabButton.dataset.tab;
-    document.querySelectorAll('.tab').forEach((tab) => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach((pane) => pane.classList.remove('active'));
-    tabButton.classList.add('active');
-    document.getElementById(`tab-${tabName}`)?.classList.add('active');
-  });
+tabs.forEach((button) => {
+  button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
 
-depositButton?.addEventListener('click', async () => {
-  const selected = getSelectedAccount();
-  if (!selected) return;
-  await post('deposit', {
-    accountId: selected.id,
-    amount: Number(depositAmount.value || 0),
-    reference: depositReference.value || ''
-  });
+closeButton?.addEventListener('click', async () => {
+  await post('close');
 });
 
-withdrawButton?.addEventListener('click', async () => {
-  const selected = getSelectedAccount();
-  if (!selected) return;
-  await post('withdraw', {
-    accountId: selected.id,
-    amount: Number(withdrawAmount.value || 0),
-    reference: withdrawReference.value || ''
-  });
+refreshButton?.addEventListener('click', async () => {
+  await post('refresh', { focusAccountId: selectedAccountId });
 });
 
-transferButton?.addEventListener('click', async () => {
-  const selected = getSelectedAccount();
-  if (!selected) return;
-  await post('transfer', {
-    fromAccountId: selected.id,
-    targetAccountNumber: transferTarget.value || '',
-    amount: Number(transferAmount.value || 0),
-    reference: transferReference.value || ''
-  });
-});
-
-createPersonalButton?.addEventListener('click', async () => {
-  await post('createPersonalAccount', { name: personalAccountName.value || '' });
-});
-
-createBusinessButton?.addEventListener('click', async () => {
-  await post('createBusinessAccount', {
-    jobName: businessJobName.value || '',
-    name: businessAccountName.value || ''
-  });
-});
-
-setDefaultButton?.addEventListener('click', async () => {
-  const selected = getSelectedAccount();
-  if (!selected) return;
-  await post('setDefaultAccount', { accountId: selected.id });
-});
-
-document.querySelectorAll('.quick-action').forEach((button) => {
+Array.from(document.querySelectorAll('.quick-action')).forEach((button) => {
   button.addEventListener('click', async () => {
     const selected = getSelectedAccount();
     if (!selected) return;
     await post('withdraw', {
       accountId: selected.id,
-      amount: Number(button.dataset.amount || 0),
-      reference: 'ATM quick withdrawal'
+      amount: Number(button.dataset.amount),
+      reference: 'ATM quick withdraw'
     });
+  });
+});
+
+document.getElementById('depositButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('deposit', {
+    accountId: selected.id,
+    amount: Number(document.getElementById('depositAmount').value || 0),
+    reference: document.getElementById('depositReference').value || ''
+  });
+});
+
+document.getElementById('withdrawButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('withdraw', {
+    accountId: selected.id,
+    amount: Number(document.getElementById('withdrawAmount').value || 0),
+    reference: document.getElementById('withdrawReference').value || ''
+  });
+});
+
+document.getElementById('transferButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('transfer', {
+    fromAccountId: selected.id,
+    targetAccountNumber: document.getElementById('transferTarget').value || '',
+    amount: Number(document.getElementById('transferAmount').value || 0),
+    reference: document.getElementById('transferReference').value || ''
+  });
+});
+
+document.getElementById('createPersonalButton')?.addEventListener('click', async () => {
+  await post('createPersonalAccount', {
+    name: document.getElementById('personalAccountName').value || ''
+  });
+});
+
+document.getElementById('createBusinessButton')?.addEventListener('click', async () => {
+  await post('createBusinessAccount', {
+    jobName: document.getElementById('businessJobName').value || '',
+    name: document.getElementById('businessAccountName').value || ''
+  });
+});
+
+document.getElementById('setDefaultButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('setDefaultAccount', { accountId: selected.id });
+});
+
+document.getElementById('createInvoiceButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('createInvoice', {
+    accountId: selected.id,
+    targetSrc: Number(document.getElementById('invoiceTarget').value || 0),
+    amount: Number(document.getElementById('invoiceAmount').value || 0),
+    reason: document.getElementById('invoiceReason').value || ''
+  });
+});
+
+document.getElementById('businessPayButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('businessPayPlayer', {
+    accountId: selected.id,
+    targetSrc: Number(document.getElementById('businessPayTarget').value || 0),
+    amount: Number(document.getElementById('businessPayAmount').value || 0),
+    reference: document.getElementById('businessPayReason').value || ''
+  });
+});
+
+document.getElementById('setBusinessAccessButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('setBusinessAccess', {
+    accountId: selected.id,
+    minGrade: Number(document.getElementById('businessAccessGrade').value || 0)
+  });
+});
+
+document.getElementById('toggleFrozenButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('setBusinessFrozen', {
+    accountId: selected.id,
+    frozen: !selected.isFrozen
+  });
+});
+
+document.getElementById('setPayrollButton')?.addEventListener('click', async () => {
+  const selected = getSelectedAccount();
+  if (!selected) return;
+  await post('setPayroll', {
+    accountId: selected.id,
+    grade: Number(document.getElementById('payrollGrade').value || 0),
+    amount: Number(document.getElementById('payrollAmount').value || 0)
   });
 });

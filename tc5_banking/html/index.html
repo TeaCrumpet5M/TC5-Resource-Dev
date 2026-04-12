@@ -12,24 +12,16 @@
       <div class="hero">
         <div>
           <div id="heroBrand" class="brand">TC5 BANK</div>
-          <div id="heroSubtitle" class="subtitle">Branch banking and ATM access</div>
+          <div id="heroSubtitle" class="subtitle">Branch banking, payroll, invoices, and mobile access</div>
         </div>
         <button id="closeButton" class="close-btn">×</button>
       </div>
 
       <div class="topbar">
-        <div class="pill">
-          <span class="label">Character</span>
-          <strong id="characterName">Unknown</strong>
-        </div>
-        <div class="pill">
-          <span class="label">Cash on Hand</span>
-          <strong id="cashOnHand">$0</strong>
-        </div>
-        <div class="pill">
-          <span class="label">Job</span>
-          <strong id="jobInfo">None</strong>
-        </div>
+        <div class="pill"><span class="label">Character</span><strong id="characterName">Unknown</strong></div>
+        <div class="pill"><span class="label">Cash on Hand</span><strong id="cashOnHand">$0</strong></div>
+        <div class="pill"><span class="label">Job</span><strong id="jobInfo">None</strong></div>
+        <div class="pill"><span class="label">Mode</span><strong id="modeInfo">Bank</strong></div>
       </div>
 
       <div class="content-grid">
@@ -48,7 +40,9 @@
           <div class="tabs">
             <button class="tab active" data-tab="overview">Overview</button>
             <button class="tab" data-tab="actions">Actions</button>
+            <button class="tab" data-tab="business">Business</button>
             <button class="tab bank-only" data-tab="manage">Manage</button>
+            <button class="tab" data-tab="invoices">Invoices</button>
             <button class="tab" data-tab="statements">Statements</button>
           </div>
 
@@ -105,6 +99,43 @@
             </div>
           </div>
 
+          <div id="tab-business" class="tab-pane">
+            <div class="action-grid">
+              <div class="action-card">
+                <h3>Create Invoice</h3>
+                <input id="invoiceTarget" type="number" min="1" placeholder="Target player id" />
+                <input id="invoiceAmount" type="number" min="1" placeholder="Amount" />
+                <input id="invoiceReason" type="text" maxlength="120" placeholder="Reason" />
+                <button id="createInvoiceButton" class="primary-btn">Send Invoice</button>
+              </div>
+
+              <div class="action-card">
+                <h3>Pay Player</h3>
+                <input id="businessPayTarget" type="number" min="1" placeholder="Target player id" />
+                <input id="businessPayAmount" type="number" min="1" placeholder="Amount" />
+                <input id="businessPayReason" type="text" maxlength="120" placeholder="Reference" />
+                <button id="businessPayButton" class="primary-btn">Send Payment</button>
+              </div>
+
+              <div class="action-card">
+                <h3>Business Access</h3>
+                <input id="businessAccessGrade" type="number" min="0" placeholder="Minimum grade to access" />
+                <div class="inline-actions">
+                  <button id="setBusinessAccessButton" class="primary-btn">Set Access Grade</button>
+                  <button id="toggleFrozenButton" class="ghost-btn">Freeze / Unfreeze</button>
+                </div>
+              </div>
+
+              <div class="action-card">
+                <h3>Payroll</h3>
+                <input id="payrollGrade" type="number" min="0" placeholder="Grade" />
+                <input id="payrollAmount" type="number" min="0" placeholder="Salary amount" />
+                <button id="setPayrollButton" class="primary-btn">Set Payroll</button>
+                <div id="payrollList" class="mini-list"></div>
+              </div>
+            </div>
+          </div>
+
           <div id="tab-manage" class="tab-pane">
             <div class="action-grid manage-grid">
               <div class="action-card">
@@ -126,6 +157,10 @@
                 <button id="setDefaultButton" class="primary-btn">Set Selected as Default</button>
               </div>
             </div>
+          </div>
+
+          <div id="tab-invoices" class="tab-pane">
+            <div id="invoiceList" class="statement-list"></div>
           </div>
 
           <div id="tab-statements" class="tab-pane">

@@ -136,7 +136,6 @@ function TC5Mechanic.BuildDiagnosticPayload(includeHistory)
 end
 
 local function sendMenu(menuType)
-    local payload = nil
     if menuType == 'repair' then
         local diagnostic, err = TC5Mechanic.BuildDiagnosticPayload(true)
         if not diagnostic then
@@ -301,6 +300,28 @@ RegisterNUICallback('purchase', function(data, cb)
     cb({ ok = true })
 end)
 
+RegisterNUICallback('createInvoice', function(data, cb)
+    TriggerServerEvent('tc5_mechanicjob:server:createInvoice', data or {})
+    cb({ ok = true })
+end)
+
+RegisterNUICallback('createBusinessAccount', function(_, cb)
+    TriggerServerEvent('tc5_mechanicjob:server:createBusinessAccount')
+    cb({ ok = true })
+end)
+
+RegisterNUICallback('payEmployee', function(data, cb)
+    TriggerServerEvent('tc5_mechanicjob:server:payEmployee', data or {})
+    cb({ ok = true })
+end)
+
+RegisterNUICallback('openBank', function(_, cb)
+    if GetResourceState('tc5_banking') == 'started' then
+        ExecuteCommand('bankmobile')
+    end
+    cb({ ok = true })
+end)
+
 RegisterCommand('mech', function(_, args)
     local action = tostring(args[1] or ''):lower()
     if action == 'craft' then
@@ -350,6 +371,14 @@ end, false)
 
 RegisterCommand('mech_boss', function()
     sendMenu('boss')
+end, false)
+
+RegisterCommand('mech_bank', function()
+    if GetResourceState('tc5_banking') == 'started' then
+        ExecuteCommand('bankmobile')
+    else
+        notify('Banking resource is not running.', 'error')
+    end
 end, false)
 
 CreateThread(function()

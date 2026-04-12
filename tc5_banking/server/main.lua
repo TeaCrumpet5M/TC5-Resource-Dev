@@ -1,4 +1,6 @@
+
 TC5Banking = TC5Banking or {}
+TC5Banking.State = TC5Banking.State or { payrollPaidAt = {} }
 
 local function notify(src, title, message, notifyType)
     TriggerClientEvent('tc5_ui:client:notify', src, {
@@ -14,25 +16,43 @@ local function notify(src, title, message, notifyType)
     })
 end
 
-local function getPlayer(src)
-    if not exports['tc5_core'] or not exports['tc5_core'].GetPlayer then
-        return nil
-    end
-    return exports['tc5_core']:GetPlayer(src)
-end
-
 local function getPlayerData(src)
-    if not exports['tc5_core'] or not exports['tc5_core'].GetPlayerData then
-        return nil
+    if exports['tc5_core'] and exports['tc5_core'].GetPlayerData then
+        return exports['tc5_core']:GetPlayerData(src)
     end
-    return exports['tc5_core']:GetPlayerData(src)
+    return nil
 end
 
 local function getCharacterId(src)
-    if not exports['tc5_core'] or not exports['tc5_core'].GetCharacterId then
-        return nil
+    if exports['tc5_core'] and exports['tc5_core'].GetCharacterId then
+        return exports['tc5_core']:GetCharacterId(src)
     end
-    return exports['tc5_core']:GetCharacterId(src)
+    return nil
+end
+
+local function getCharacterName(src)
+    local data = getPlayerData(src)
+    if data and data.character and data.character.fullName then
+        return tostring(data.character.fullName)
+    end
+    return GetPlayerName(src) or ('Player %s'):format(tostring(src))
+end
+
+local function syncLegacyBank(src, amount)
+    local charId = getCharacterId(src)
+    if not charId then return end
+    MySQL.update.await('UPDATE tc5_characters SET bank = ? WHERE id = ?', {
+        math.max(0, math.floor(tonumber(amount) or 0)),
+        tonumber(charId)
+    })
+end
+
+local function getLegacyBankAmount(src)
+    local data = getPlayerData(src)
+    if data and data.character then
+        return math.max(0, math.floor(tonumber(data.character.bank) or 0))
+    end
+    return 0
 end
 
 local function getCurrentJob(src)
@@ -41,7 +61,7 @@ local function getCurrentJob(src)
         if type(job) == 'table' then
             return {
                 name = tostring(job.name or job.job or ''),
-                label = tostring(job.label or job.name or 'Business'),
+                label = tostring(job.label or job.name or ''),
                 grade = tonumber(job.grade or job.gradeLevel or 0) or 0,
                 gradeName = tostring(job.gradeName or '')
             }
@@ -56,41 +76,16 @@ local function getCurrentJob(src)
     }
 end
 
-local function getLegacyBankAmount(src)
-    local data = getPlayerData(src)
-    if data and data.character then
-        return math.max(0, math.floor(tonumber(data.character.bank) or 0))
-    end
-    return 0
-end
-
-local function syncLegacyBank(src, amount)
-    local charId = getCharacterId(src)
-    if not charId or amount == nil then return end
-
-    local target = math.max(0, math.floor(tonumber(amount) or 0))
-
-    MySQL.update.await([[
-        UPDATE tc5_characters
-        SET bank = ?
-        WHERE id = ?
-    ]], {
-        target,
-        tonumber(charId)
-    })
-end
-
 local function getInventory(src)
-    if not exports['tc5_inventory'] or not exports['tc5_inventory'].GetInventory then
-        return nil
+    if exports['tc5_inventory'] and exports['tc5_inventory'].GetInventory then
+        return exports['tc5_inventory']:GetInventory(src)
     end
-    return exports['tc5_inventory']:GetInventory(src)
+    return nil
 end
 
 local function getCashOnHand(src)
     local inventory = getInventory(src)
     if not inventory or not inventory.items then return 0 end
-
     local total = 0
     for _, item in pairs(inventory.items) do
         if item.name == TC5Banking.Config.CashItemName then
@@ -119,13 +114,28 @@ local function removeCashItem(src, amount)
     end
 
     local remaining = amount
+    local slots = {}
+
     for slot, item in pairs(inventory.items) do
-        if item.name == TC5Banking.Config.CashItemName and remaining > 0 then
-            local removeAmount = math.min(tonumber(item.amount) or 0, remaining)
-            local ok = exports['tc5_inventory']:RemoveItem(src, TC5Banking.Config.CashItemName, removeAmount, tonumber(slot))
-            if ok then
-                remaining = remaining - removeAmount
-            end
+        if item.name == TC5Banking.Config.CashItemName then
+            slots[#slots + 1] = {
+                slot = tonumber(slot),
+                amount = tonumber(item.amount) or 0
+            }
+        end
+    end
+
+    table.sort(slots, function(a, b)
+        return a.slot < b.slot
+    end)
+
+    for i = 1, #slots do
+        if remaining <= 0 then break end
+        local entry = slots[i]
+        local take = math.min(entry.amount, remaining)
+        local ok = exports['tc5_inventory']:RemoveItem(src, TC5Banking.Config.CashItemName, take, entry.slot)
+        if ok then
+            remaining = remaining - take
         end
     end
 
@@ -162,6 +172,28 @@ local function getAccountByNumber(accountNumber)
     return MySQL.single.await('SELECT * FROM tc5_bank_accounts WHERE account_number = ? LIMIT 1', { tostring(accountNumber) })
 end
 
+local function updateAccountBalance(accountId, newBalance)
+    MySQL.update.await('UPDATE tc5_bank_accounts SET balance = ? WHERE id = ?', {
+        math.max(0, math.floor(tonumber(newBalance) or 0)),
+        tonumber(accountId)
+    })
+end
+
+local function insertTransaction(accountId, actorCharId, txType, amount, balanceAfter, referenceText, targetAccountNumber)
+    MySQL.insert.await([[
+        INSERT INTO tc5_bank_transactions (account_id, actor_char_id, tx_type, amount, balance_after, reference_text, target_account_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ]], {
+        tonumber(accountId),
+        actorCharId and tonumber(actorCharId) or nil,
+        tostring(txType),
+        math.floor(tonumber(amount) or 0),
+        math.floor(tonumber(balanceAfter) or 0),
+        referenceText and tostring(referenceText) or nil,
+        targetAccountNumber and tostring(targetAccountNumber) or nil
+    })
+end
+
 local function getPersonalAccountCount(charId)
     local count = MySQL.scalar.await('SELECT COUNT(*) FROM tc5_bank_accounts WHERE owner_char_id = ? AND account_type = ?', {
         tonumber(charId),
@@ -177,7 +209,9 @@ local function getDefaultPersonalAccount(charId)
         LIMIT 1
     ]], { tonumber(charId) })
 
-    if account then return account end
+    if account then
+        return account
+    end
 
     return MySQL.single.await([[
         SELECT * FROM tc5_bank_accounts
@@ -200,100 +234,6 @@ local function setDefaultPersonalAccount(charId, accountId)
     })
 end
 
-local function insertTransaction(accountId, actorCharId, txType, amount, balanceAfter, referenceText, targetAccountNumber)
-    MySQL.insert.await([[
-        INSERT INTO tc5_bank_transactions (account_id, actor_char_id, tx_type, amount, balance_after, reference_text, target_account_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ]], {
-        tonumber(accountId),
-        actorCharId and tonumber(actorCharId) or nil,
-        tostring(txType),
-        math.floor(tonumber(amount) or 0),
-        math.floor(tonumber(balanceAfter) or 0),
-        referenceText and tostring(referenceText) or nil,
-        targetAccountNumber and tostring(targetAccountNumber) or nil
-    })
-end
-
-local function buildAccountPermissions(src, account)
-    local charId = getCharacterId(src)
-    if not charId or not account then
-        return nil
-    end
-
-    if account.account_type == 'personal' then
-        if tonumber(account.owner_char_id) ~= tonumber(charId) then
-            return nil
-        end
-
-        return {
-            view = true,
-            deposit = true,
-            withdraw = true,
-            transfer = true,
-            manage = true,
-            role = 'owner'
-        }
-    end
-
-    if account.account_type == 'business' then
-        local job = getCurrentJob(src)
-        if not job.name or job.name == '' then
-            return nil
-        end
-
-        local access = MySQL.single.await([[
-            SELECT * FROM tc5_bank_business_access
-            WHERE account_id = ? AND job_name = ?
-            ORDER BY min_grade DESC
-            LIMIT 1
-        ]], {
-            tonumber(account.id),
-            tostring(job.name)
-        })
-
-        if not access then
-            return nil
-        end
-
-        local minGrade = tonumber(access.min_grade) or 0
-        if job.grade < minGrade then
-            return nil
-        end
-
-        local canManage = job.grade >= minGrade
-        return {
-            view = true,
-            deposit = true,
-            withdraw = true,
-            transfer = true,
-            manage = canManage,
-            role = canManage and 'manager' or 'member',
-            job = job
-        }
-    end
-
-    return nil
-end
-
-local function canAccessAccount(src, accountId, permission)
-    local account = getAccountById(accountId)
-    if not account then
-        return false, nil
-    end
-
-    local permissions = buildAccountPermissions(src, account)
-    if not permissions then
-        return false, nil
-    end
-
-    if permission and permissions[permission] ~= true then
-        return false, account
-    end
-
-    return true, account, permissions
-end
-
 local function ensureCharacterSetup(src)
     local charId = getCharacterId(src)
     if not charId then return false end
@@ -305,15 +245,13 @@ local function ensureCharacterSetup(src)
     end
 
     local legacyBank = getLegacyBankAmount(src)
-    local accountNumber = generateUniqueAccountNumber()
-
     local accountId = MySQL.insert.await([[
         INSERT INTO tc5_bank_accounts (account_type, owner_char_id, account_name, account_number, sort_code, balance, is_default)
         VALUES ('personal', ?, ?, ?, ?, ?, 1)
     ]], {
         tonumber(charId),
         'Main Account',
-        accountNumber,
+        generateUniqueAccountNumber(),
         TC5Banking.Config.SortCode,
         legacyBank
     })
@@ -329,19 +267,121 @@ local function ensureCharacterSetup(src)
     return true
 end
 
+local function buildAccountPermissions(src, account)
+    local charId = getCharacterId(src)
+    if not charId or not account then return nil end
+
+    if account.account_type == 'personal' then
+        if tonumber(account.owner_char_id) ~= tonumber(charId) then
+            return nil
+        end
+
+        return {
+            view = true,
+            deposit = true,
+            withdraw = true,
+            transfer = true,
+            manage = true,
+            invoice = true,
+            payroll = false,
+            role = 'owner'
+        }
+    end
+
+    if account.account_type == 'business' then
+        local job = getCurrentJob(src)
+        if job.name == '' then return nil end
+
+        local access = MySQL.single.await([[
+            SELECT * FROM tc5_bank_business_access
+            WHERE account_id = ? AND job_name = ?
+            LIMIT 1
+        ]], {
+            tonumber(account.id),
+            tostring(job.name)
+        })
+
+        if not access then
+            return nil
+        end
+
+        local minGrade = tonumber(access.min_grade) or 0
+        if job.grade < minGrade then
+            return nil
+        end
+
+        local manage = job.grade >= minGrade
+        return {
+            view = true,
+            deposit = true,
+            withdraw = true,
+            transfer = true,
+            manage = manage,
+            invoice = true,
+            payroll = manage,
+            role = manage and 'manager' or 'member',
+            job = job,
+            minGrade = minGrade
+        }
+    end
+
+    return nil
+end
+
+local function canAccessAccount(src, accountId, permission)
+    local account = getAccountById(accountId)
+    if not account then
+        return false, nil
+    end
+
+    local permissions = buildAccountPermissions(src, account)
+    if not permissions then
+        return false, account
+    end
+
+    if permission and permissions[permission] ~= true then
+        return false, account, permissions
+    end
+
+    return true, account, permissions
+end
+
+local function getStatements(accountId)
+    local rows = MySQL.query.await([[
+        SELECT * FROM tc5_bank_transactions
+        WHERE account_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+    ]], {
+        tonumber(accountId),
+        tonumber(TC5Banking.Config.StatementLimit) or 60
+    }) or {}
+
+    local statements = {}
+    for i = 1, #rows do
+        local row = rows[i]
+        statements[#statements + 1] = {
+            id = tonumber(row.id),
+            type = row.tx_type,
+            amount = tonumber(row.amount) or 0,
+            balanceAfter = tonumber(row.balance_after) or 0,
+            reference = row.reference_text or '',
+            targetAccountNumber = row.target_account_number or '',
+            createdAt = tostring(row.created_at or '')
+        }
+    end
+    return statements
+end
+
 local function getAccessibleAccounts(src)
     ensureCharacterSetup(src)
-
     local charId = getCharacterId(src)
     if not charId then return {} end
 
     local accounts = {}
-
-    local personalRows = MySQL.query.await([[
-        SELECT * FROM tc5_bank_accounts
-        WHERE owner_char_id = ?
-        ORDER BY account_type ASC, is_default DESC, id ASC
-    ]], { tonumber(charId) }) or {}
+    local personalRows = MySQL.query.await('SELECT * FROM tc5_bank_accounts WHERE owner_char_id = ? ORDER BY is_default DESC, id ASC', {
+        tonumber(charId)
+    }) or {}
 
     for i = 1, #personalRows do
         local account = personalRows[i]
@@ -356,14 +396,14 @@ local function getAccessibleAccounts(src)
                 balance = tonumber(account.balance) or 0,
                 isDefault = tonumber(account.is_default) == 1,
                 isFrozen = tonumber(account.is_frozen) == 1,
-                businessJobName = account.business_job_name,
+                businessJobName = account.business_job_name or '',
                 permissions = permissions
             }
         end
     end
 
     local job = getCurrentJob(src)
-    if job.name and job.name ~= '' then
+    if job.name ~= '' then
         local businessRows = MySQL.query.await([[
             SELECT a.*
             FROM tc5_bank_accounts a
@@ -372,8 +412,8 @@ local function getAccessibleAccounts(src)
             GROUP BY a.id
             ORDER BY a.id ASC
         ]], {
-            tostring(job.name),
-            tonumber(job.grade) or 0
+            job.name,
+            job.grade
         }) or {}
 
         for i = 1, #businessRows do
@@ -389,7 +429,7 @@ local function getAccessibleAccounts(src)
                     balance = tonumber(account.balance) or 0,
                     isDefault = false,
                     isFrozen = tonumber(account.is_frozen) == 1,
-                    businessJobName = account.business_job_name,
+                    businessJobName = account.business_job_name or '',
                     permissions = permissions
                 }
             end
@@ -397,51 +437,107 @@ local function getAccessibleAccounts(src)
     end
 
     table.sort(accounts, function(a, b)
-        if a.type ~= b.type then
-            return a.type < b.type
-        end
-        if a.isDefault ~= b.isDefault then
-            return a.isDefault
-        end
+        if a.type ~= b.type then return a.type < b.type end
+        if a.isDefault ~= b.isDefault then return a.isDefault end
         return a.id < b.id
     end)
 
     return accounts
 end
 
-local function getStatements(accountId)
-    local rows = MySQL.query.await([[
-        SELECT * FROM tc5_bank_transactions
-        WHERE account_id = ?
-        ORDER BY id DESC
-        LIMIT ?
-    ]], {
-        tonumber(accountId),
-        tonumber(TC5Banking.Config.StatementLimit) or 50
+local function getPayrollRows(accountId)
+    local rows = MySQL.query.await('SELECT * FROM tc5_bank_payroll WHERE account_id = ? ORDER BY grade ASC', {
+        tonumber(accountId)
     }) or {}
 
-    local statements = {}
+    local out = {}
     for i = 1, #rows do
         local row = rows[i]
-        statements[#statements + 1] = {
+        out[#out + 1] = {
             id = tonumber(row.id),
-            type = row.tx_type,
+            grade = tonumber(row.grade) or 0,
             amount = tonumber(row.amount) or 0,
-            balanceAfter = tonumber(row.balance_after) or 0,
-            reference = row.reference_text,
-            targetAccountNumber = row.target_account_number,
+            jobName = tostring(row.job_name or '')
+        }
+    end
+    return out
+end
+
+local function getPendingInvoicesForChar(charId)
+    local rows = MySQL.query.await([[
+        SELECT i.*, a.account_name
+        FROM tc5_bank_invoices i
+        INNER JOIN tc5_bank_accounts a ON a.id = i.account_id
+        WHERE i.to_char_id = ? AND i.status = 'pending'
+        ORDER BY i.id DESC
+    ]], {
+        tonumber(charId)
+    }) or {}
+
+    local invoices = {}
+    for i = 1, #rows do
+        local row = rows[i]
+        invoices[#invoices + 1] = {
+            id = tonumber(row.id),
+            accountId = tonumber(row.account_id),
+            accountName = tostring(row.account_name or 'Business'),
+            fromCharId = tonumber(row.from_char_id),
+            fromName = tostring(row.from_name or ''),
+            toCharId = tonumber(row.to_char_id),
+            toName = tostring(row.to_name or ''),
+            amount = tonumber(row.amount) or 0,
+            reason = tostring(row.reason or ''),
+            status = tostring(row.status or 'pending'),
             createdAt = tostring(row.created_at or '')
         }
     end
-    return statements
+    return invoices
+end
+
+local function buildUiPayload(src, mode, focusAccountId)
+    local playerData = getPlayerData(src)
+    local charId = getCharacterId(src)
+    local accounts = getAccessibleAccounts(src)
+    local statementsByAccount = {}
+    local payrollByAccount = {}
+
+    for i = 1, #accounts do
+        statementsByAccount[tostring(accounts[i].id)] = getStatements(accounts[i].id)
+        if accounts[i].type == 'business' then
+            payrollByAccount[tostring(accounts[i].id)] = getPayrollRows(accounts[i].id)
+        end
+    end
+
+    return {
+        mode = mode or 'bank',
+        character = playerData and playerData.character and {
+            id = playerData.character.id,
+            fullName = playerData.character.fullName
+        } or nil,
+        cashOnHand = getCashOnHand(src),
+        job = getCurrentJob(src),
+        accounts = accounts,
+        statements = statementsByAccount,
+        payroll = payrollByAccount,
+        pendingInvoices = charId and getPendingInvoicesForChar(charId) or {},
+        focusAccountId = focusAccountId,
+        config = {
+            maxPersonalAccounts = TC5Banking.Config.MaxPersonalAccounts,
+            statementLimit = TC5Banking.Config.StatementLimit,
+            enableATMDeposits = TC5Banking.Config.EnableATMDeposits,
+            enableATMTransfers = TC5Banking.Config.EnableATMTransfers,
+            enablePayroll = TC5Banking.Config.EnablePayroll
+        }
+    }
+end
+
+local function refreshUi(src, mode, focusAccountId)
+    TriggerClientEvent('tc5_banking:client:refreshUi', src, buildUiPayload(src, mode, focusAccountId))
 end
 
 local function createPersonalAccount(src, accountName)
     local charId = getCharacterId(src)
-    if not charId then
-        return false, 'no_character'
-    end
-
+    if not charId then return false, 'no_character' end
     ensureCharacterSetup(src)
 
     if getPersonalAccountCount(charId) >= TC5Banking.Config.MaxPersonalAccounts then
@@ -480,7 +576,8 @@ local function createBusinessAccount(src, jobName, accountName)
         return false, 'job_mismatch'
     end
 
-    if job.grade < (TC5Banking.Config.BusinessCreationMinGrade or 3) then
+    local requiredGrade = tonumber(TC5Banking.Config.BusinessCreationMinGrade) or 3
+    if job.grade < requiredGrade then
         return false, 'grade_too_low'
     end
 
@@ -488,6 +585,7 @@ local function createBusinessAccount(src, jobName, accountName)
         'business',
         jobName
     })
+
     if existing then
         return false, 'business_exists'
     end
@@ -508,7 +606,7 @@ local function createBusinessAccount(src, jobName, accountName)
     ]], {
         tonumber(accountId),
         jobName,
-        TC5Banking.Config.BusinessCreationMinGrade or 3
+        tonumber(TC5Banking.Config.DefaultBusinessAccessGrade) or requiredGrade
     })
 
     local charId = getCharacterId(src)
@@ -529,14 +627,12 @@ local function depositToAccount(src, accountId, amount, reference)
     if not removed then return false, 'not_enough_cash' end
 
     local newBalance = (tonumber(account.balance) or 0) + amount
-    MySQL.update.await('UPDATE tc5_bank_accounts SET balance = ? WHERE id = ?', { newBalance, tonumber(account.id) })
-
+    updateAccountBalance(account.id, newBalance)
     local charId = getCharacterId(src)
-    insertTransaction(account.id, charId, 'deposit', amount, newBalance, reference or 'Cash deposit', nil)
+    insertTransaction(account.id, charId, 'deposit', amount, newBalance, reference ~= '' and reference or 'Cash deposit', nil)
 
-    local charIdLocal = getCharacterId(src)
-    if charIdLocal and account.account_type == 'personal' and tonumber(account.owner_char_id) == tonumber(charIdLocal) then
-        local defaultAccount = getDefaultPersonalAccount(charIdLocal)
+    if account.account_type == 'personal' and tonumber(account.owner_char_id) == tonumber(charId) then
+        local defaultAccount = getDefaultPersonalAccount(charId)
         if defaultAccount and tonumber(defaultAccount.id) == tonumber(account.id) then
             syncLegacyBank(src, newBalance)
         end
@@ -557,26 +653,23 @@ local function withdrawFromAccount(src, accountId, amount, reference)
     local balance = tonumber(account.balance) or 0
     if balance < amount then return false, 'insufficient_funds' end
 
-    local inventoryCanCarry = true
     if exports['tc5_inventory'] and exports['tc5_inventory'].CanCarryItem then
-        inventoryCanCarry = exports['tc5_inventory']:CanCarryItem(src, TC5Banking.Config.CashItemName, amount)
-    end
-    if inventoryCanCarry == false then
-        return false, 'cannot_carry_cash'
+        local canCarry = exports['tc5_inventory']:CanCarryItem(src, TC5Banking.Config.CashItemName, amount)
+        if canCarry == false then
+            return false, 'cannot_carry_cash'
+        end
     end
 
     local okAdd = addCashItem(src, amount)
     if not okAdd then return false, 'cannot_carry_cash' end
 
     local newBalance = balance - amount
-    MySQL.update.await('UPDATE tc5_bank_accounts SET balance = ? WHERE id = ?', { newBalance, tonumber(account.id) })
-
+    updateAccountBalance(account.id, newBalance)
     local charId = getCharacterId(src)
-    insertTransaction(account.id, charId, 'withdraw', amount, newBalance, reference or 'Cash withdrawal', nil)
+    insertTransaction(account.id, charId, 'withdraw', amount, newBalance, reference ~= '' and reference or 'Cash withdrawal', nil)
 
-    local charIdLocal = getCharacterId(src)
-    if charIdLocal and account.account_type == 'personal' and tonumber(account.owner_char_id) == tonumber(charIdLocal) then
-        local defaultAccount = getDefaultPersonalAccount(charIdLocal)
+    if account.account_type == 'personal' and tonumber(account.owner_char_id) == tonumber(charId) then
+        local defaultAccount = getDefaultPersonalAccount(charId)
         if defaultAccount and tonumber(defaultAccount.id) == tonumber(account.id) then
             syncLegacyBank(src, newBalance)
         end
@@ -586,79 +679,291 @@ local function withdrawFromAccount(src, accountId, amount, reference)
     return true, newBalance
 end
 
-local function transferBetweenAccounts(src, fromAccountId, targetAccountNumber, amount, reference)
+local function transferByAccounts(src, fromAccount, target, amount, reference, txOutType, txInType)
     amount = math.max(0, math.floor(tonumber(amount) or 0))
     if amount <= 0 then return false, 'invalid_amount' end
-
-    local ok, fromAccount = canAccessAccount(src, fromAccountId, 'transfer')
-    if not ok then return false, 'no_access' end
     if tonumber(fromAccount.is_frozen) == 1 then return false, 'account_frozen' end
-
-    local target = getAccountByNumber(targetAccountNumber)
-    if not target then return false, 'target_not_found' end
-    if tonumber(target.id) == tonumber(fromAccount.id) then return false, 'same_account' end
     if tonumber(target.is_frozen) == 1 then return false, 'target_frozen' end
 
     local fromBalance = tonumber(fromAccount.balance) or 0
     if fromBalance < amount then return false, 'insufficient_funds' end
 
-    local toBalance = tonumber(target.balance) or 0
     local newFromBalance = fromBalance - amount
-    local newToBalance = toBalance + amount
+    local newToBalance = (tonumber(target.balance) or 0) + amount
 
-    MySQL.update.await('UPDATE tc5_bank_accounts SET balance = ? WHERE id = ?', { newFromBalance, tonumber(fromAccount.id) })
-    MySQL.update.await('UPDATE tc5_bank_accounts SET balance = ? WHERE id = ?', { newToBalance, tonumber(target.id) })
+    updateAccountBalance(fromAccount.id, newFromBalance)
+    updateAccountBalance(target.id, newToBalance)
 
-    local charId = getCharacterId(src)
-    reference = reference and tostring(reference) or 'Bank transfer'
+    local actorCharId = src and getCharacterId(src) or nil
+    local ref = reference ~= '' and reference or 'Bank transfer'
+    insertTransaction(fromAccount.id, actorCharId, txOutType or 'transfer_out', amount, newFromBalance, ref, target.account_number)
+    insertTransaction(target.id, actorCharId, txInType or 'transfer_in', amount, newToBalance, ref, fromAccount.account_number)
 
-    insertTransaction(fromAccount.id, charId, 'transfer_out', amount, newFromBalance, reference, target.account_number)
-    insertTransaction(target.id, charId, 'transfer_in', amount, newToBalance, reference, fromAccount.account_number)
-
-    local charIdLocal = getCharacterId(src)
-    if charIdLocal and fromAccount.account_type == 'personal' and tonumber(fromAccount.owner_char_id) == tonumber(charIdLocal) then
-        local defaultAccount = getDefaultPersonalAccount(charIdLocal)
+    if src and fromAccount.account_type == 'personal' and tonumber(fromAccount.owner_char_id) == tonumber(actorCharId) then
+        local defaultAccount = getDefaultPersonalAccount(actorCharId)
         if defaultAccount and tonumber(defaultAccount.id) == tonumber(fromAccount.id) then
             syncLegacyBank(src, newFromBalance)
         end
     end
 
-    return true, newFromBalance
+    return true, newFromBalance, newToBalance
 end
 
-local function buildUiPayload(src, mode, focusAccountId)
-    local playerData = getPlayerData(src)
-    local accounts = getAccessibleAccounts(src)
-    local statementsByAccount = {}
+local function transferBetweenAccounts(src, fromAccountId, targetAccountNumber, amount, reference)
+    local ok, fromAccount = canAccessAccount(src, fromAccountId, 'transfer')
+    if not ok then return false, 'no_access' end
 
-    for i = 1, #accounts do
-        statementsByAccount[tostring(accounts[i].id)] = getStatements(accounts[i].id)
+    local target = getAccountByNumber(targetAccountNumber)
+    if not target then return false, 'target_not_found' end
+    if tonumber(target.id) == tonumber(fromAccount.id) then return false, 'same_account' end
+
+    return transferByAccounts(src, fromAccount, target, amount, reference, 'transfer_out', 'transfer_in')
+end
+
+local function setBusinessAccessGrade(src, accountId, minGrade)
+    minGrade = math.max(0, math.floor(tonumber(minGrade) or 0))
+    local ok, account = canAccessAccount(src, accountId, 'manage')
+    if not ok or account.account_type ~= 'business' then
+        return false, 'no_access'
+    end
+
+    local jobName = tostring(account.business_job_name or '')
+    if jobName == '' then
+        return false, 'invalid_account'
+    end
+
+    MySQL.update.await([[
+        UPDATE tc5_bank_business_access
+        SET min_grade = ?
+        WHERE account_id = ? AND job_name = ?
+    ]], {
+        minGrade,
+        tonumber(account.id),
+        jobName
+    })
+
+    return true
+end
+
+local function setBusinessFrozen(src, accountId, isFrozen)
+    local ok, account = canAccessAccount(src, accountId, 'manage')
+    if not ok or account.account_type ~= 'business' then
+        return false, 'no_access'
+    end
+
+    MySQL.update.await('UPDATE tc5_bank_accounts SET is_frozen = ? WHERE id = ?', {
+        isFrozen and 1 or 0,
+        tonumber(account.id)
+    })
+    return true
+end
+
+local function setPayrollAmount(src, accountId, grade, amount)
+    grade = math.max(0, math.floor(tonumber(grade) or 0))
+    amount = math.max(0, math.floor(tonumber(amount) or 0))
+
+    local ok, account = canAccessAccount(src, accountId, 'payroll')
+    if not ok or account.account_type ~= 'business' then
+        return false, 'no_access'
+    end
+
+    MySQL.insert.await([[
+        INSERT INTO tc5_bank_payroll (account_id, job_name, grade, amount)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE amount = VALUES(amount), updated_at = CURRENT_TIMESTAMP
+    ]], {
+        tonumber(account.id),
+        tostring(account.business_job_name or ''),
+        grade,
+        amount
+    })
+
+    return true
+end
+
+local function payPlayerFromBusiness(src, accountId, targetSrc, amount, reference)
+    targetSrc = tonumber(targetSrc)
+    amount = math.max(0, math.floor(tonumber(amount) or 0))
+    reference = TC5Banking.Utils.Trim(reference)
+
+    if not targetSrc or GetPlayerPing(targetSrc) <= 0 then
+        return false, 'target_not_found'
+    end
+    if amount <= 0 then
+        return false, 'invalid_amount'
+    end
+
+    local ok, businessAccount = canAccessAccount(src, accountId, 'payroll')
+    if not ok or businessAccount.account_type ~= 'business' then
+        return false, 'no_access'
+    end
+
+    ensureCharacterSetup(targetSrc)
+    local targetCharId = getCharacterId(targetSrc)
+    if not targetCharId then
+        return false, 'target_character_missing'
+    end
+
+    local targetDefault = getDefaultPersonalAccount(targetCharId)
+    if not targetDefault then
+        return false, 'target_account_missing'
+    end
+
+    local success = transferByAccounts(src, businessAccount, targetDefault, amount, reference ~= '' and reference or 'Business payment', 'business_payment_out', 'business_payment_in')
+    if not success then
+        return false, targetDefault
+    end
+
+    notify(targetSrc, 'Banking', ('You received %s from %s.'):format(TC5Banking.Utils.FormatMoney(amount), tostring(businessAccount.account_name)), 'success')
+    syncLegacyBank(targetSrc, tonumber(getDefaultPersonalAccount(targetCharId).balance) or 0)
+    return true
+end
+
+local function createInvoice(src, targetSrc, accountId, amount, reason)
+    targetSrc = tonumber(targetSrc)
+    amount = math.max(0, math.floor(tonumber(amount) or 0))
+    reason = TC5Banking.Utils.Trim(reason)
+
+    if not targetSrc or GetPlayerPing(targetSrc) <= 0 then
+        return false, 'target_not_found'
+    end
+    if amount <= 0 then
+        return false, 'invalid_amount'
+    end
+    if amount > (tonumber(TC5Banking.Config.MaxInvoiceAmount) or 500000) then
+        return false, 'invoice_too_large'
+    end
+
+    local ok, account = canAccessAccount(src, accountId, 'invoice')
+    if not ok then
+        return false, 'no_access'
+    end
+    if tonumber(account.is_frozen) == 1 then
+        return false, 'account_frozen'
+    end
+
+    local fromCharId = getCharacterId(src)
+    local toCharId = getCharacterId(targetSrc)
+    if not fromCharId or not toCharId then
+        return false, 'character_missing'
+    end
+
+    local invoiceId = MySQL.insert.await([[
+        INSERT INTO tc5_bank_invoices (account_id, from_char_id, from_name, to_char_id, to_name, amount, reason, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+    ]], {
+        tonumber(account.id),
+        tonumber(fromCharId),
+        getCharacterName(src),
+        tonumber(toCharId),
+        getCharacterName(targetSrc),
+        amount,
+        reason ~= '' and reason or 'Invoice'
+    })
+
+    notify(targetSrc, 'Invoice', ('New invoice received for %s. Open /bankmobile or /bank to review it.'):format(TC5Banking.Utils.FormatMoney(amount)), 'info')
+    return true, invoiceId
+end
+
+local function acceptInvoice(src, invoiceId)
+    local charId = getCharacterId(src)
+    if not charId then return false, 'no_character' end
+    ensureCharacterSetup(src)
+
+    local invoice = MySQL.single.await('SELECT * FROM tc5_bank_invoices WHERE id = ? LIMIT 1', {
+        tonumber(invoiceId)
+    })
+
+    if not invoice then return false, 'invoice_not_found' end
+    if tostring(invoice.status) ~= 'pending' then return false, 'invoice_closed' end
+    if tonumber(invoice.to_char_id) ~= tonumber(charId) then return false, 'not_your_invoice' end
+
+    local payerAccount = getDefaultPersonalAccount(charId)
+    if not payerAccount then return false, 'no_account' end
+
+    local businessAccount = getAccountById(invoice.account_id)
+    if not businessAccount then return false, 'target_missing' end
+
+    local ok, reason = transferByAccounts(src, payerAccount, businessAccount, invoice.amount, invoice.reason or 'Invoice payment', 'invoice_payment_out', 'invoice_payment_in')
+    if not ok then
+        return false, reason
+    end
+
+    MySQL.update.await('UPDATE tc5_bank_invoices SET status = ? WHERE id = ?', { 'paid', tonumber(invoice.id) })
+    syncLegacyBank(src, tonumber(getDefaultPersonalAccount(charId).balance) or 0)
+    return true
+end
+
+local function declineInvoice(src, invoiceId)
+    local charId = getCharacterId(src)
+    if not charId then return false, 'no_character' end
+
+    local invoice = MySQL.single.await('SELECT * FROM tc5_bank_invoices WHERE id = ? LIMIT 1', {
+        tonumber(invoiceId)
+    })
+
+    if not invoice then return false, 'invoice_not_found' end
+    if tostring(invoice.status) ~= 'pending' then return false, 'invoice_closed' end
+    if tonumber(invoice.to_char_id) ~= tonumber(charId) then return false, 'not_your_invoice' end
+
+    MySQL.update.await('UPDATE tc5_bank_invoices SET status = ? WHERE id = ?', { 'declined', tonumber(invoice.id) })
+    return true
+end
+
+local function processPayrollForPlayer(src)
+    if not TC5Banking.Config.EnablePayroll then return end
+    local charId = getCharacterId(src)
+    if not charId then return end
+    ensureCharacterSetup(src)
+
+    local now = os.time()
+    local lastPaid = TC5Banking.State.payrollPaidAt[src] or 0
+    local interval = math.max(1, tonumber(TC5Banking.Config.PayIntervalMinutes) or 30) * 60
+    if now - lastPaid < interval then
+        return
     end
 
     local job = getCurrentJob(src)
+    if job.name == '' then
+        return
+    end
 
-    return {
-        mode = mode or 'bank',
-        character = playerData and playerData.character and {
-            id = playerData.character.id,
-            fullName = playerData.character.fullName
-        } or nil,
-        cashOnHand = getCashOnHand(src),
-        accounts = accounts,
-        statements = statementsByAccount,
-        focusAccountId = focusAccountId,
-        config = {
-            maxPersonalAccounts = TC5Banking.Config.MaxPersonalAccounts,
-            statementLimit = TC5Banking.Config.StatementLimit,
-            enableATMDeposits = TC5Banking.Config.EnableATMDeposits,
-            enableATMTransfers = TC5Banking.Config.EnableATMTransfers
-        },
-        job = job
-    }
-end
+    local row = MySQL.single.await([[
+        SELECT p.*, a.balance, a.account_number, a.id AS resolved_account_id, a.is_frozen
+        FROM tc5_bank_payroll p
+        INNER JOIN tc5_bank_accounts a ON a.id = p.account_id
+        WHERE p.job_name = ? AND p.grade = ? AND a.account_type = 'business'
+        LIMIT 1
+    ]], {
+        job.name,
+        job.grade
+    })
 
-local function refreshUi(src, mode, focusAccountId)
-    TriggerClientEvent('tc5_banking:client:refreshUi', src, buildUiPayload(src, mode, focusAccountId))
+    if not row then
+        return
+    end
+
+    if tonumber(row.is_frozen) == 1 then
+        return
+    end
+
+    local amount = tonumber(row.amount) or 0
+    if amount <= 0 then
+        return
+    end
+
+    local defaultAccount = getDefaultPersonalAccount(charId)
+    if not defaultAccount then return end
+
+    local businessAccount = getAccountById(row.resolved_account_id or row.account_id)
+    if not businessAccount then return end
+
+    local ok = transferByAccounts(src, businessAccount, defaultAccount, amount, TC5Banking.Config.PayrollReference or 'Salary payment', 'payroll_out', 'payroll_in')
+    if ok then
+        TC5Banking.State.payrollPaidAt[src] = now
+        syncLegacyBank(src, tonumber(getDefaultPersonalAccount(charId).balance) or 0)
+        notify(src, 'Payroll', ('You were paid %s.'):format(TC5Banking.Utils.FormatMoney(amount)), 'success')
+    end
 end
 
 RegisterNetEvent('tc5_banking:server:openUi', function(mode)
@@ -677,15 +982,14 @@ RegisterNetEvent('tc5_banking:server:createPersonalAccount', function(accountNam
     local ok, result = createPersonalAccount(src, accountName)
     if not ok then
         local map = {
-            max_accounts = 'You have reached the maximum number of personal accounts.',
-            no_character = 'Character not loaded.'
+            no_character = 'Character not loaded.',
+            max_accounts = 'You have reached the maximum number of personal accounts.'
         }
-        notify(src, 'Banking', map[result] or 'Could not create account.', 'error')
+        notify(src, 'Banking', map[result] or 'Could not create personal account.', 'error')
         refreshUi(src, mode or 'bank')
         return
     end
-
-    notify(src, 'Banking', 'Personal account created successfully.', 'success')
+    notify(src, 'Banking', 'Personal account created.', 'success')
     refreshUi(src, mode or 'bank', result)
 end)
 
@@ -694,17 +998,16 @@ RegisterNetEvent('tc5_banking:server:createBusinessAccount', function(jobName, a
     local ok, result = createBusinessAccount(src, jobName, accountName)
     if not ok then
         local map = {
-            invalid_arguments = 'Usage: provide a valid job and account name.',
+            invalid_arguments = 'Enter a valid job and account name.',
             job_mismatch = 'You can only create a business account for your active job.',
             grade_too_low = 'Your grade is too low to create a business account.',
-            business_exists = 'A business account for that job already exists.'
+            business_exists = 'That job already has a business account.'
         }
         notify(src, 'Banking', map[result] or 'Could not create business account.', 'error')
         refreshUi(src, mode or 'bank')
         return
     end
-
-    notify(src, 'Banking', 'Business account created successfully.', 'success')
+    notify(src, 'Banking', 'Business account created.', 'success')
     refreshUi(src, mode or 'bank', result)
 end)
 
@@ -744,7 +1047,6 @@ RegisterNetEvent('tc5_banking:server:deposit', function(accountId, amount, refer
         refreshUi(src, mode or 'bank', accountId)
         return
     end
-
     notify(src, 'Banking', ('Deposit complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)), 'success')
     refreshUi(src, mode or 'bank', accountId)
 end)
@@ -764,7 +1066,6 @@ RegisterNetEvent('tc5_banking:server:withdraw', function(accountId, amount, refe
         refreshUi(src, mode or 'bank', accountId)
         return
     end
-
     notify(src, 'Banking', ('Withdrawal complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)), 'success')
     refreshUi(src, mode or 'bank', accountId)
 end)
@@ -776,9 +1077,9 @@ RegisterNetEvent('tc5_banking:server:transfer', function(fromAccountId, targetAc
         local map = {
             invalid_amount = 'Enter a valid amount.',
             no_access = 'You do not have access to that account.',
-            account_frozen = 'The source account is frozen.',
-            target_frozen = 'The target account is frozen.',
-            target_not_found = 'Target account not found.',
+            account_frozen = 'Source account is frozen.',
+            target_frozen = 'Target account is frozen.',
+            target_not_found = 'Target account was not found.',
             same_account = 'You cannot transfer to the same account.',
             insufficient_funds = 'Insufficient funds.'
         }
@@ -786,19 +1087,154 @@ RegisterNetEvent('tc5_banking:server:transfer', function(fromAccountId, targetAc
         refreshUi(src, mode or 'bank', fromAccountId)
         return
     end
-
     notify(src, 'Banking', ('Transfer complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)), 'success')
     refreshUi(src, mode or 'bank', fromAccountId)
 end)
 
+RegisterNetEvent('tc5_banking:server:createInvoice', function(targetSrc, accountId, amount, reason, mode)
+    local src = source
+    local ok, result = createInvoice(src, targetSrc, accountId, amount, reason)
+    if not ok then
+        local map = {
+            target_not_found = 'Target player was not found.',
+            invalid_amount = 'Enter a valid invoice amount.',
+            invoice_too_large = 'Invoice exceeds the configured maximum.',
+            no_access = 'You do not have invoice access on that account.',
+            account_frozen = 'That account is frozen.',
+            character_missing = 'A player character is not loaded.'
+        }
+        notify(src, 'Invoice', map[result] or 'Invoice creation failed.', 'error')
+        refreshUi(src, mode or 'bank', accountId)
+        return
+    end
+    notify(src, 'Invoice', ('Invoice #%s sent.'):format(tostring(result)), 'success')
+    refreshUi(src, mode or 'bank', accountId)
+end)
+
+RegisterNetEvent('tc5_banking:server:acceptInvoice', function(invoiceId, mode)
+    local src = source
+    local ok, result = acceptInvoice(src, invoiceId)
+    if not ok then
+        local map = {
+            invoice_not_found = 'Invoice not found.',
+            invoice_closed = 'That invoice is no longer pending.',
+            not_your_invoice = 'That invoice does not belong to you.',
+            no_account = 'You do not have a default account.',
+            target_missing = 'The destination account is missing.',
+            insufficient_funds = 'Insufficient funds.',
+            account_frozen = 'Source account is frozen.',
+            target_frozen = 'Destination account is frozen.'
+        }
+        notify(src, 'Invoice', map[result] or 'Invoice payment failed.', 'error')
+        refreshUi(src, mode or 'mobile')
+        return
+    end
+    notify(src, 'Invoice', 'Invoice paid successfully.', 'success')
+    refreshUi(src, mode or 'mobile')
+end)
+
+RegisterNetEvent('tc5_banking:server:declineInvoice', function(invoiceId, mode)
+    local src = source
+    local ok, result = declineInvoice(src, invoiceId)
+    if not ok then
+        local map = {
+            invoice_not_found = 'Invoice not found.',
+            invoice_closed = 'That invoice is no longer pending.',
+            not_your_invoice = 'That invoice does not belong to you.'
+        }
+        notify(src, 'Invoice', map[result] or 'Could not decline invoice.', 'error')
+        refreshUi(src, mode or 'mobile')
+        return
+    end
+    notify(src, 'Invoice', 'Invoice declined.', 'success')
+    refreshUi(src, mode or 'mobile')
+end)
+
+RegisterNetEvent('tc5_banking:server:setBusinessAccess', function(accountId, minGrade, mode)
+    local src = source
+    local ok, result = setBusinessAccessGrade(src, accountId, minGrade)
+    if not ok then
+        notify(src, 'Business', result == 'no_access' and 'You do not have access to manage that business account.' or 'Could not update access grade.', 'error')
+        refreshUi(src, mode or 'bank', accountId)
+        return
+    end
+    notify(src, 'Business', 'Business access grade updated.', 'success')
+    refreshUi(src, mode or 'bank', accountId)
+end)
+
+RegisterNetEvent('tc5_banking:server:setBusinessFrozen', function(accountId, frozenState, mode)
+    local src = source
+    local ok = setBusinessFrozen(src, accountId, frozenState == true)
+    if not ok then
+        notify(src, 'Business', 'Could not update frozen state.', 'error')
+        refreshUi(src, mode or 'bank', accountId)
+        return
+    end
+    notify(src, 'Business', frozenState and 'Business account frozen.' or 'Business account unfrozen.', 'success')
+    refreshUi(src, mode or 'bank', accountId)
+end)
+
+RegisterNetEvent('tc5_banking:server:businessPayPlayer', function(accountId, targetSrc, amount, reference, mode)
+    local src = source
+    local ok, result = payPlayerFromBusiness(src, accountId, targetSrc, amount, reference)
+    if not ok then
+        local map = {
+            target_not_found = 'Target player was not found.',
+            invalid_amount = 'Enter a valid amount.',
+            no_access = 'You do not have payroll access on that account.',
+            target_character_missing = 'Target character is not loaded.',
+            target_account_missing = 'Target player has no bank account.',
+            insufficient_funds = 'Business account has insufficient funds.',
+            account_frozen = 'Business account is frozen.',
+            target_frozen = 'Target account is frozen.'
+        }
+        notify(src, 'Business', map[result] or 'Business payment failed.', 'error')
+        refreshUi(src, mode or 'bank', accountId)
+        return
+    end
+    notify(src, 'Business', 'Business payment sent.', 'success')
+    refreshUi(src, mode or 'bank', accountId)
+end)
+
+RegisterNetEvent('tc5_banking:server:setPayroll', function(accountId, grade, amount, mode)
+    local src = source
+    local ok, result = setPayrollAmount(src, accountId, grade, amount)
+    if not ok then
+        notify(src, 'Payroll', result == 'no_access' and 'You do not have payroll access to that account.' or 'Could not update payroll.', 'error')
+        refreshUi(src, mode or 'bank', accountId)
+        return
+    end
+    notify(src, 'Payroll', 'Payroll amount updated.', 'success')
+    refreshUi(src, mode or 'bank', accountId)
+end)
+
+CreateThread(function()
+    while true do
+        Wait(10000)
+        if TC5Banking.Config.EnablePayroll then
+            for _, src in ipairs(GetPlayers()) do
+                local numericSrc = tonumber(src)
+                if numericSrc then
+                    pcall(processPayrollForPlayer, numericSrc)
+                end
+            end
+        end
+    end
+end)
+
 RegisterCommand(TC5Banking.Config.OpenCommand, function(src)
     if src == 0 then return end
-    TriggerEvent('tc5_banking:server:openUi', 'bank')
+    TriggerClientEvent('tc5_banking:client:openUi', src, buildUiPayload(src, 'bank'))
 end, false)
 
 RegisterCommand(TC5Banking.Config.ATMCommand, function(src)
     if src == 0 then return end
-    TriggerEvent('tc5_banking:server:openUi', 'atm')
+    TriggerClientEvent('tc5_banking:client:openUi', src, buildUiPayload(src, 'atm'))
+end, false)
+
+RegisterCommand(TC5Banking.Config.MobileCommand, function(src)
+    if src == 0 then return end
+    TriggerClientEvent('tc5_banking:client:openUi', src, buildUiPayload(src, 'mobile'))
 end, false)
 
 RegisterCommand(TC5Banking.Config.CloseCommand, function(src)
@@ -808,13 +1244,11 @@ end, false)
 
 RegisterCommand('bankaccounts', function(src)
     if src == 0 then return end
-
     local accounts = getAccessibleAccounts(src)
     if #accounts == 0 then
         TriggerClientEvent('chat:addMessage', src, { args = { 'Banking', 'No accessible accounts found.' } })
         return
     end
-
     for i = 1, #accounts do
         local account = accounts[i]
         TriggerClientEvent('chat:addMessage', src, {
@@ -832,26 +1266,16 @@ end, false)
 
 RegisterCommand('bankcreatepersonal', function(src, args)
     if src == 0 then return end
-    local accountName = table.concat(args or {}, ' ')
-    local ok, result = createPersonalAccount(src, accountName)
-    if ok then
-        notify(src, 'Banking', 'Personal account created successfully.', 'success')
-    else
-        notify(src, 'Banking', 'Could not create personal account.', 'error')
-    end
+    local ok = createPersonalAccount(src, table.concat(args or {}, ' '))
+    notify(src, 'Banking', ok and 'Personal account created.' or 'Could not create personal account.', ok and 'success' or 'error')
 end, false)
 
 RegisterCommand('bankcreatebusiness', function(src, args)
     if src == 0 then return end
     local jobName = args[1] or ''
     table.remove(args, 1)
-    local accountName = table.concat(args or {}, ' ')
-    local ok, result = createBusinessAccount(src, jobName, accountName)
-    if ok then
-        notify(src, 'Banking', 'Business account created successfully.', 'success')
-    else
-        notify(src, 'Banking', 'Could not create business account.', 'error')
-    end
+    local ok = createBusinessAccount(src, jobName, table.concat(args or {}, ' '))
+    notify(src, 'Banking', ok and 'Business account created.' or 'Could not create business account.', ok and 'success' or 'error')
 end, false)
 
 RegisterCommand('banksetdefault', function(src, args)
@@ -861,6 +1285,7 @@ RegisterCommand('banksetdefault', function(src, args)
         notify(src, 'Banking', 'Usage: /banksetdefault [accountId]', 'error')
         return
     end
+
     local charId = getCharacterId(src)
     if not charId then return end
     setDefaultPersonalAccount(charId, accountId)
@@ -880,11 +1305,7 @@ RegisterCommand('bankdeposit', function(src, args)
         return
     end
     local ok, result = depositToAccount(src, accountId, amount, 'Chat command deposit')
-    if ok then
-        notify(src, 'Banking', ('Deposit complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)), 'success')
-    else
-        notify(src, 'Banking', 'Deposit failed.', 'error')
-    end
+    notify(src, 'Banking', ok and ('Deposit complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)) or 'Deposit failed.', ok and 'success' or 'error')
 end, false)
 
 RegisterCommand('bankwithdraw', function(src, args)
@@ -896,11 +1317,7 @@ RegisterCommand('bankwithdraw', function(src, args)
         return
     end
     local ok, result = withdrawFromAccount(src, accountId, amount, 'Chat command withdrawal')
-    if ok then
-        notify(src, 'Banking', ('Withdrawal complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)), 'success')
-    else
-        notify(src, 'Banking', 'Withdrawal failed.', 'error')
-    end
+    notify(src, 'Banking', ok and ('Withdrawal complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)) or 'Withdrawal failed.', ok and 'success' or 'error')
 end, false)
 
 RegisterCommand('banktransfer', function(src, args)
@@ -912,16 +1329,96 @@ RegisterCommand('banktransfer', function(src, args)
         notify(src, 'Banking', 'Usage: /banktransfer [fromAccountId] [toAccountNumber] [amount] [reference]', 'error')
         return
     end
-    local reference = ''
-    if #args >= 4 then
-        reference = table.concat(args, ' ', 4)
-    end
+    local reference = #args >= 4 and table.concat(args, ' ', 4) or ''
     local ok, result = transferBetweenAccounts(src, fromAccountId, targetAccountNumber, amount, reference)
-    if ok then
-        notify(src, 'Banking', ('Transfer complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)), 'success')
-    else
-        notify(src, 'Banking', 'Transfer failed.', 'error')
+    notify(src, 'Banking', ok and ('Transfer complete. New balance: %s'):format(TC5Banking.Utils.FormatMoney(result)) or 'Transfer failed.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('bill', function(src, args)
+    if src == 0 then return end
+    local targetSrc = tonumber(args[1])
+    local accountId = tonumber(args[2])
+    local amount = tonumber(args[3])
+    if not targetSrc or not accountId or not amount then
+        notify(src, 'Invoice', 'Usage: /bill [playerId] [accountId] [amount] [reason]', 'error')
+        return
     end
+    local reason = #args >= 4 and table.concat(args, ' ', 4) or 'Invoice'
+    local ok, result = createInvoice(src, targetSrc, accountId, amount, reason)
+    notify(src, 'Invoice', ok and ('Invoice #%s sent.'):format(tostring(result)) or 'Invoice failed.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('bankinvoiceaccept', function(src, args)
+    if src == 0 then return end
+    local invoiceId = tonumber(args[1])
+    if not invoiceId then
+        notify(src, 'Invoice', 'Usage: /bankinvoiceaccept [invoiceId]', 'error')
+        return
+    end
+    local ok = acceptInvoice(src, invoiceId)
+    notify(src, 'Invoice', ok and 'Invoice paid.' or 'Invoice payment failed.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('bankinvoicedecline', function(src, args)
+    if src == 0 then return end
+    local invoiceId = tonumber(args[1])
+    if not invoiceId then
+        notify(src, 'Invoice', 'Usage: /bankinvoicedecline [invoiceId]', 'error')
+        return
+    end
+    local ok = declineInvoice(src, invoiceId)
+    notify(src, 'Invoice', ok and 'Invoice declined.' or 'Could not decline invoice.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('businesspay', function(src, args)
+    if src == 0 then return end
+    local accountId = tonumber(args[1])
+    local targetSrc = tonumber(args[2])
+    local amount = tonumber(args[3])
+    if not accountId or not targetSrc or not amount then
+        notify(src, 'Business', 'Usage: /businesspay [accountId] [playerId] [amount] [reason]', 'error')
+        return
+    end
+    local reason = #args >= 4 and table.concat(args, ' ', 4) or 'Business payment'
+    local ok = payPlayerFromBusiness(src, accountId, targetSrc, amount, reason)
+    notify(src, 'Business', ok and 'Business payment sent.' or 'Business payment failed.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('businessaccess', function(src, args)
+    if src == 0 then return end
+    local accountId = tonumber(args[1])
+    local grade = tonumber(args[2])
+    if not accountId or grade == nil then
+        notify(src, 'Business', 'Usage: /businessaccess [accountId] [minGrade]', 'error')
+        return
+    end
+    local ok = setBusinessAccessGrade(src, accountId, grade)
+    notify(src, 'Business', ok and 'Access grade updated.' or 'Could not update access grade.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('businessfreeze', function(src, args)
+    if src == 0 then return end
+    local accountId = tonumber(args[1])
+    local frozen = tostring(args[2] or ''):lower()
+    if not accountId or (frozen ~= 'true' and frozen ~= 'false') then
+        notify(src, 'Business', 'Usage: /businessfreeze [accountId] [true/false]', 'error')
+        return
+    end
+    local ok = setBusinessFrozen(src, accountId, frozen == 'true')
+    notify(src, 'Business', ok and 'Frozen state updated.' or 'Could not update frozen state.', ok and 'success' or 'error')
+end, false)
+
+RegisterCommand('businesssetwage', function(src, args)
+    if src == 0 then return end
+    local accountId = tonumber(args[1])
+    local grade = tonumber(args[2])
+    local amount = tonumber(args[3])
+    if not accountId or grade == nil or amount == nil then
+        notify(src, 'Payroll', 'Usage: /businesssetwage [accountId] [grade] [amount]', 'error')
+        return
+    end
+    local ok = setPayrollAmount(src, accountId, grade, amount)
+    notify(src, 'Payroll', ok and 'Payroll amount updated.' or 'Could not update payroll.', ok and 'success' or 'error')
 end, false)
 
 exports('GetAccessibleAccounts', function(src)
@@ -962,4 +1459,28 @@ end)
 
 exports('GetCashOnHand', function(src)
     return getCashOnHand(src)
+end)
+
+exports('CreateInvoice', function(src, targetSrc, accountId, amount, reason)
+    return createInvoice(src, targetSrc, accountId, amount, reason)
+end)
+
+exports('AcceptInvoice', function(src, invoiceId)
+    return acceptInvoice(src, invoiceId)
+end)
+
+exports('DeclineInvoice', function(src, invoiceId)
+    return declineInvoice(src, invoiceId)
+end)
+
+exports('PayPlayerFromBusiness', function(src, accountId, targetSrc, amount, reason)
+    return payPlayerFromBusiness(src, accountId, targetSrc, amount, reason)
+end)
+
+exports('SetBusinessAccessGrade', function(src, accountId, minGrade)
+    return setBusinessAccessGrade(src, accountId, minGrade)
+end)
+
+exports('SetPayrollAmount', function(src, accountId, grade, amount)
+    return setPayrollAmount(src, accountId, grade, amount)
 end)

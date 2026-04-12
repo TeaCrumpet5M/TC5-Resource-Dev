@@ -8,14 +8,17 @@ end
 
 RegisterNetEvent('tc5_inventory:server:buyItem', function(shopId, itemName, slot, amount)
     local src = source
-    local player = exports['tc5_core']:GetPlayer(src)
     local shop = TC5Shops[shopId]
 
-    if not player or not shop then
+    if not shop then
         return
     end
 
     amount = tonumber(amount) or 1
+    if amount <= 0 then
+        notify(src, 'Invalid amount.', 'error')
+        return
+    end
 
     local entry = nil
 
@@ -38,8 +41,9 @@ RegisterNetEvent('tc5_inventory:server:buyItem', function(shopId, itemName, slot
     end
 
     local price = (tonumber(entry.price) or 0) * amount
+    local currentCash = exports['tc5_inventory']:GetCash(src)
 
-    if player:GetCash() < price then
+    if currentCash < price then
         notify(src, 'Not enough cash.', 'error')
         return
     end
@@ -50,8 +54,11 @@ RegisterNetEvent('tc5_inventory:server:buyItem', function(shopId, itemName, slot
         return
     end
 
-    player:RemoveCash(price)
-    player:SaveCharacter()
+    local removed, reason = exports['tc5_inventory']:RemoveCash(src, price)
+    if not removed then
+        notify(src, ('Cash removal failed: %s'):format(reason or 'unknown'), 'error')
+        return
+    end
 
     exports['tc5_inventory']:AddItem(src, entry.name, amount)
 

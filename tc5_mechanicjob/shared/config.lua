@@ -8,6 +8,15 @@ TC5Mechanic.Config.InteractDistance = 1.75
 TC5Mechanic.Config.MarkerDistance = 18.0
 TC5Mechanic.Config.MenuCommand = 'mech'
 TC5Mechanic.Config.CurrencyLabel = '$'
+TC5Mechanic.Config.AutoOpenBankOnBoss = false
+TC5Mechanic.Config.EnableBilling = true
+TC5Mechanic.Config.EnableBusinessPayouts = true
+TC5Mechanic.Config.EnableBusinessAccountCreation = true
+TC5Mechanic.Config.EnableStockPurchasing = true
+TC5Mechanic.Config.StockPurchasePayment = 'cash' -- cash only for now
+TC5Mechanic.Config.DefaultInvoiceReason = 'Mechanic service'
+TC5Mechanic.Config.MaxInvoiceAmount = 250000
+TC5Mechanic.Config.MaxPayoutAmount = 250000
 
 TC5Mechanic.Config.DefaultGrades = {
     [0] = { label = 'Apprentice', salary = 200 },
@@ -128,13 +137,12 @@ TC5Mechanic.Config.Shops = {
         accent = '#d63b3b',
         bossGrades = { [4] = true, [5] = true },
         grades = {
-                 [0] = { label = 'Trainee', salary = 180 },
-                 [1] = { label = 'Mechanic', salary = 325 },
-                 [2] = { label = 'Senior Mechanic', salary = 475 },
-                 [3] = { label = 'Shop Lead', salary = 650 },
-                 [4] = { label = 'Manager', salary = 850 },
-                 [5] = { label = 'Owner', salary = 1100 },
-
+            [0] = { label = 'Trainee', salary = 180 },
+            [1] = { label = 'Mechanic', salary = 325 },
+            [2] = { label = 'Senior Mechanic', salary = 475 },
+            [3] = { label = 'Shop Lead', salary = 650 },
+            [4] = { label = 'Manager', salary = 850 },
+            [5] = { label = 'Owner', salary = 1100 }
         },
         locations = {
             duty = vec3(308.5997, -704.2717, 29.5824),

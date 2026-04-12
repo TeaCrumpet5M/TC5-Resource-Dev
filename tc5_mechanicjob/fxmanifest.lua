@@ -4,8 +4,8 @@ lua54 'yes'
 
 name 'tc5_mechanicjob'
 author 'OpenAI'
-description 'Fresh mechanic job resource for TC5 with repair/crafting/boss/shop NUI and tc5_jobs integration'
-version '4.0.0'
+description 'TC5 mechanic job with repair/crafting/boss/shop UI and tc5_banking billing integration'
+version '4.1.0'
 
 ui_page 'html/index.html'
 
@@ -33,5 +33,6 @@ dependencies {
     'tc5_core',
     'tc5_inventory',
     'tc5_jobs',
-    'tc5_ui'
+    'tc5_ui',
+    'tc5_banking'
 }

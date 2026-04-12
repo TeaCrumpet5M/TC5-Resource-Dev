@@ -499,3 +499,21 @@ exports('CanCarryItem', function(src, itemName, amount)
 
     return TC5Inventory.CanCarry('player', charId, itemName, amount)
 end)
+
+exports('GetItemCount', function(src, itemName)
+    local charId = getCharacterId(src)
+    if not charId then
+        return 0
+    end
+
+    local inventory = TC5Inventory.GetInventory('player', charId)
+    local total = 0
+
+    for _, item in pairs(inventory and inventory.items or {}) do
+        if item.name == itemName then
+            total = total + (tonumber(item.amount) or 0)
+        end
+    end
+
+    return total
+end)

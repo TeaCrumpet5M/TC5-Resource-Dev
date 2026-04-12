@@ -26,9 +26,19 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  return `$${amount.toLocaleString()}`;
+}
+
 function materialList(materials = []) {
   if (!materials.length) return '<div class="meta">No materials</div>';
   return materials.map(m => `<span class="pill">${escapeHtml(m.item)} x${escapeHtml(m.amount)}</span>`).join(' ');
+}
+
+function businessOptions(accounts = []) {
+  if (!accounts.length) return '<option value="">No linked business account</option>';
+  return accounts.map(acc => `<option value="${escapeHtml(acc.id)}">${escapeHtml(acc.name)} • ${escapeHtml(acc.accountNumber)} • ${formatMoney(acc.balance)}</option>`).join('');
 }
 
 function diagnosticCard(vehicle) {
@@ -63,6 +73,73 @@ function diagnosticCard(vehicle) {
   `;
 }
 
+function billingCard(payload) {
+  if (!payload.billingEnabled) return '';
+  return `
+    <div class="card full">
+      <div class="row"><h3>Banking invoice</h3><span class="pill">tc5_banking</span></div>
+      <p>Create an invoice from your linked business account. The customer can accept it from bank mobile or the main bank UI.</p>
+      <div class="form-grid two">
+        <div class="field">
+          <label>Customer server id</label>
+          <input id="invoiceTargetId" type="number" min="1" placeholder="e.g. 7">
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <input id="invoiceAmount" type="number" min="1" max="${escapeHtml(payload.maxInvoiceAmount || 250000)}" placeholder="e.g. 850">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>Business account</label>
+          <select id="invoiceAccountId">${businessOptions(payload.businessAccounts || [])}</select>
+        </div>
+        <div class="field">
+          <label>Reason</label>
+          <input id="invoiceReason" type="text" maxlength="100" value="${escapeHtml(payload.defaultInvoiceReason || 'Mechanic service')}">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" data-action="createInvoice">Send invoice</button>
+      </div>
+    </div>
+  `;
+}
+
+function payoutCard(payload) {
+  if (!payload.payoutsEnabled) return '';
+  return `
+    <div class="card full">
+      <div class="row"><h3>Business payout</h3><span class="pill">Boss only</span></div>
+      <p>Pay an employee or contractor directly from a linked business account.</p>
+      <div class="form-grid two">
+        <div class="field">
+          <label>Target server id</label>
+          <input id="payTargetId" type="number" min="1" placeholder="e.g. 12">
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <input id="payAmount" type="number" min="1" placeholder="e.g. 500">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>Business account</label>
+          <select id="payAccountId">${businessOptions(payload.businessAccounts || [])}</select>
+        </div>
+        <div class="field">
+          <label>Reason</label>
+          <input id="payReason" type="text" maxlength="100" value="Shift payment">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" data-action="payEmployee">Send payout</button>
+        <button class="btn secondary" data-action="openBank">Open banking</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderCrafting(payload) {
   menuTitle.textContent = 'Crafting Bench';
   subInfo.textContent = `Create repair parts for ${payload.shopLabel}.`;
@@ -88,7 +165,7 @@ function renderRepair(payload) {
       <button class="btn" data-action="repair" data-id="${escapeHtml(repair.id)}">Start repair</button>
     </div>
   `).join('');
-  content.innerHTML = diagnosticCard(payload.vehicle) + repairCards;
+  content.innerHTML = diagnosticCard(payload.vehicle) + billingCard(payload) + repairCards;
 }
 
 function renderShop(payload) {
@@ -98,7 +175,7 @@ function renderShop(payload) {
     <div class="list-item">
       <div>
         <strong>${escapeHtml(item.label)}</strong>
-        <div class="meta">Gives ${escapeHtml(item.amount)}x ${escapeHtml(item.item)} • ${escapeHtml(item.price)}</div>
+        <div class="meta">Gives ${escapeHtml(item.amount)}x ${escapeHtml(item.item)} • ${formatMoney(item.price)}</div>
       </div>
       <button class="btn ${payload.shopPurchasingEnabled ? '' : 'secondary'}" data-action="purchase" data-id="${escapeHtml(item.id)}">${payload.shopPurchasingEnabled ? 'Buy' : 'Unavailable'}</button>
     </div>
@@ -114,7 +191,7 @@ function renderShop(payload) {
 
 function renderBoss(payload) {
   menuTitle.textContent = 'Boss Menu';
-  subInfo.textContent = `Manage ${payload.shopLabel} staff with quick reference commands.`;
+  subInfo.textContent = `Manage ${payload.shopLabel} staff and linked banking actions.`;
   const roster = (payload.roster || []).map(row => `
     <div class="list-item">
       <div>
@@ -125,11 +202,31 @@ function renderBoss(payload) {
     </div>
   `).join('');
   const commands = (payload.commands || []).map(cmd => `<span class="pill mono">${escapeHtml(cmd)}</span>`).join(' ');
+  const accounts = (payload.businessAccounts || []).length
+    ? payload.businessAccounts.map(acc => `
+      <div class="list-item">
+        <div>
+          <strong>${escapeHtml(acc.name)}</strong>
+          <div class="meta mono">${escapeHtml(acc.accountNumber)} • Min grade ${escapeHtml(acc.minGrade)} • ${acc.isFrozen ? 'Frozen' : 'Active'}</div>
+        </div>
+        <span class="pill">${formatMoney(acc.balance)}</span>
+      </div>
+    `).join('')
+    : '<p>No linked business account found for this shop yet.</p>';
   content.innerHTML = `
     <div class="card full">
       <h3>Staff roster</h3>
       <div class="grid-rows">${roster || '<p>No online staff found for this shop.</p>'}</div>
     </div>
+    <div class="card full">
+      <div class="row"><h3>Business accounts</h3><span class="pill">Mechanic finance</span></div>
+      <div class="grid-rows">${accounts}</div>
+      <div class="actions">
+        ${payload.canCreateBusinessAccount ? '<button class="btn" data-action="createBusinessAccount">Create linked business account</button>' : ''}
+        <button class="btn secondary" data-action="openBank">Open banking</button>
+      </div>
+    </div>
+    ${payoutCard(payload)}
     <div class="card full">
       <h3>Chat commands</h3>
       <div>${commands}</div>
@@ -174,4 +271,22 @@ document.addEventListener('click', (event) => {
   if (action === 'craft') post('craft', { id });
   if (action === 'repair') post('repair', { id });
   if (action === 'purchase') post('purchase', { id });
+  if (action === 'openBank') post('openBank');
+  if (action === 'createBusinessAccount') post('createBusinessAccount');
+  if (action === 'createInvoice') {
+    post('createInvoice', {
+      targetId: document.getElementById('invoiceTargetId')?.value,
+      accountId: document.getElementById('invoiceAccountId')?.value,
+      amount: document.getElementById('invoiceAmount')?.value,
+      reason: document.getElementById('invoiceReason')?.value
+    });
+  }
+  if (action === 'payEmployee') {
+    post('payEmployee', {
+      targetId: document.getElementById('payTargetId')?.value,
+      accountId: document.getElementById('payAccountId')?.value,
+      amount: document.getElementById('payAmount')?.value,
+      reason: document.getElementById('payReason')?.value
+    });
+  }
 });

@@ -4,8 +4,8 @@ lua54 'yes'
 
 name 'tc5_banking'
 author 'OpenAI'
-description 'Standalone TC5 banking with ATM and business accounts'
-version '1.0.0'
+description 'Standalone banking, business finance, invoices, payroll, and mobile banking for TC5'
+version '3.0.0'
 
 ui_page 'html/index.html'
 
@@ -33,5 +33,6 @@ files {
 dependencies {
     'oxmysql',
     'tc5_core',
+    'tc5_ui',
     'tc5_inventory'
 }

@@ -1,3 +1,4 @@
+
 local uiOpen = false
 local currentMode = 'bank'
 local lastFocusAccountId = nil
@@ -28,10 +29,8 @@ local function isNear(coords, radius)
 end
 
 local function isNearATM()
-    local ped = PlayerPedId()
-    local myCoords = GetEntityCoords(ped)
     for i = 1, #TC5Banking.Config.ATMs do
-        if #(myCoords - TC5Banking.Config.ATMs[i]) <= 1.7 then
+        if isNear(TC5Banking.Config.ATMs[i], 1.7) then
             return true
         end
     end
@@ -39,10 +38,8 @@ local function isNearATM()
 end
 
 local function isNearBankBranch()
-    local ped = PlayerPedId()
-    local myCoords = GetEntityCoords(ped)
     for i = 1, #TC5Banking.Config.BankBranches do
-        if #(myCoords - TC5Banking.Config.BankBranches[i].coords) <= 2.0 then
+        if isNear(TC5Banking.Config.BankBranches[i].coords, 2.0) then
             return true
         end
     end
@@ -130,6 +127,46 @@ RegisterNUICallback('transfer', function(data, cb)
     cb('ok')
 end)
 
+RegisterNUICallback('createInvoice', function(data, cb)
+    lastFocusAccountId = data and data.accountId or lastFocusAccountId
+    TriggerServerEvent('tc5_banking:server:createInvoice', data and data.targetSrc or 0, data and data.accountId or 0, data and data.amount or 0, data and data.reason or '', currentMode)
+    cb('ok')
+end)
+
+RegisterNUICallback('acceptInvoice', function(data, cb)
+    TriggerServerEvent('tc5_banking:server:acceptInvoice', data and data.invoiceId or 0, currentMode)
+    cb('ok')
+end)
+
+RegisterNUICallback('declineInvoice', function(data, cb)
+    TriggerServerEvent('tc5_banking:server:declineInvoice', data and data.invoiceId or 0, currentMode)
+    cb('ok')
+end)
+
+RegisterNUICallback('setBusinessAccess', function(data, cb)
+    lastFocusAccountId = data and data.accountId or lastFocusAccountId
+    TriggerServerEvent('tc5_banking:server:setBusinessAccess', data and data.accountId or 0, data and data.minGrade or 0, currentMode)
+    cb('ok')
+end)
+
+RegisterNUICallback('setBusinessFrozen', function(data, cb)
+    lastFocusAccountId = data and data.accountId or lastFocusAccountId
+    TriggerServerEvent('tc5_banking:server:setBusinessFrozen', data and data.accountId or 0, data and data.frozen or false, currentMode)
+    cb('ok')
+end)
+
+RegisterNUICallback('businessPayPlayer', function(data, cb)
+    lastFocusAccountId = data and data.accountId or lastFocusAccountId
+    TriggerServerEvent('tc5_banking:server:businessPayPlayer', data and data.accountId or 0, data and data.targetSrc or 0, data and data.amount or 0, data and data.reference or '', currentMode)
+    cb('ok')
+end)
+
+RegisterNUICallback('setPayroll', function(data, cb)
+    lastFocusAccountId = data and data.accountId or lastFocusAccountId
+    TriggerServerEvent('tc5_banking:server:setPayroll', data and data.accountId or 0, data and data.grade or 0, data and data.amount or 0, currentMode)
+    cb('ok')
+end)
+
 CreateThread(function()
     while true do
         local waitMs = 1000
@@ -179,6 +216,11 @@ end, false)
 
 RegisterCommand(TC5Banking.Config.ATMCommand, function()
     tryOpen('atm')
+end, false)
+
+RegisterCommand(TC5Banking.Config.MobileCommand, function()
+    currentMode = 'mobile'
+    TriggerServerEvent('tc5_banking:server:openUi', 'mobile')
 end, false)
 
 RegisterCommand(TC5Banking.Config.CloseCommand, function()

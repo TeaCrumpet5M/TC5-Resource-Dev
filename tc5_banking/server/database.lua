@@ -16,7 +16,9 @@ CreateThread(function()
             created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            UNIQUE KEY uq_account_number (account_number)
+            UNIQUE KEY uq_account_number (account_number),
+            KEY idx_owner_type (owner_char_id, account_type),
+            KEY idx_business_job (business_job_name)
         )
     ]])
 
@@ -27,8 +29,9 @@ CreateThread(function()
             job_name VARCHAR(50) NOT NULL,
             min_grade INT NOT NULL DEFAULT 0,
             created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            KEY idx_account_job (account_id, job_name)
+            UNIQUE KEY uq_account_job (account_id, job_name)
         )
     ]])
 
@@ -55,6 +58,40 @@ CreateThread(function()
             created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (char_id)
+        )
+    ]])
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS tc5_bank_invoices (
+            id INT NOT NULL AUTO_INCREMENT,
+            account_id INT NOT NULL,
+            from_char_id INT NOT NULL,
+            from_name VARCHAR(100) NOT NULL,
+            to_char_id INT NOT NULL,
+            to_name VARCHAR(100) NOT NULL,
+            amount BIGINT NOT NULL,
+            reason VARCHAR(255) NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_to_status (to_char_id, status),
+            KEY idx_account_status (account_id, status)
+        )
+    ]])
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS tc5_bank_payroll (
+            id INT NOT NULL AUTO_INCREMENT,
+            account_id INT NOT NULL,
+            job_name VARCHAR(50) NOT NULL,
+            grade INT NOT NULL,
+            amount BIGINT NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_account_grade (account_id, grade),
+            KEY idx_job_grade (job_name, grade)
         )
     ]])
 

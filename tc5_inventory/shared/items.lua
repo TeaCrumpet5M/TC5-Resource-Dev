@@ -1,18 +1,18 @@
 TC5Items = {
+    cash = {
+        label = 'Cash',
+        weight = 0,
+        stack = true,
+        image = 'cash.png',
+        description = 'Physical money'
+    },
+
     water = {
         label = 'Water',
         weight = 500,
         stack = true,
         image = 'water.png'
     },
-
-    cash = {
-    label = 'Cash',
-    weight = 0,
-    stack = true,
-    image = 'cash.png',
-    description = 'Physical money'
-},
 
     lockpick = {
         label = 'Lockpick',
